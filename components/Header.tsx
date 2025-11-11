@@ -24,8 +24,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, isAuthenticated, onLogout, 
   const navLinks = [
       { name: 'Find Jobs', page: 'job_search' as Page },
       { name: 'Companies', page: 'job_search' as Page },
-      { name: 'Career Advice', page: 'landing' as Page },
-      { name: 'For Employers', page: 'signup' as Page },
+      { name: 'About', page: 'landing' as Page },
   ];
 
   const handleDashboardClick = () => {
@@ -44,7 +43,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, isAuthenticated, onLogout, 
   }
 
   return (
-    <header className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-200">
+    <header className="bg-white/95 backdrop-blur-md fixed top-0 left-0 right-0 z-50 border-b border-gray-200 shadow-sm">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
@@ -91,12 +90,6 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, isAuthenticated, onLogout, 
               <>
                 <button onClick={() => onNavigate('login')} className="text-gray-600 hover:text-primary font-medium transition-colors duration-200">
                   Log In
-                </button>
-                <button
-                  onClick={() => onNavigate('signup')}
-                  className="hidden lg:block px-4 py-2 border border-secondary text-secondary rounded-md font-semibold hover:bg-secondary hover:text-white transition-all duration-200"
-                >
-                  For Employers
                 </button>
                 <button
                   onClick={() => onNavigate('signup')}

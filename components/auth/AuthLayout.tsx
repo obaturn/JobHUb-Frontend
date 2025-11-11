@@ -18,6 +18,17 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ title, children, onNavigate }) 
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-secondary/5 rounded-full blur-3xl"></div>
       </div>
 
+      {/* Close button */}
+      <button
+        onClick={() => onNavigate('landing')}
+        className="absolute top-6 right-6 z-20 w-10 h-10 bg-white/80 backdrop-blur-sm rounded-full shadow-lg flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-white transition-all duration-200"
+        aria-label="Close login"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="flex justify-center">
             <button

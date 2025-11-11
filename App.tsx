@@ -413,7 +413,7 @@ const App: React.FC = () => {
           onMarkAllRead={handleMarkAllNotificationsRead}
         />
         <Suspense fallback={<LoadingSpinner message="Loading page..." />}>
-          <main className="flex-grow">
+          <main className={`flex-grow ${currentPage !== 'landing' ? 'pt-16' : ''}`}>
             {renderPage()}
           </main>
         </Suspense>

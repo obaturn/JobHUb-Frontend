@@ -123,7 +123,7 @@ const JobSeekerDashboardPage: React.FC<JobSeekerDashboardPageProps> = ({ user, a
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Left Sidebar */}
           <aside className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-md p-4 sticky top-24">
+            <div className="bg-white rounded-lg shadow-md p-4 sticky top-20">
               <div className="text-center py-4 border-b border-gray-200">
                 <img src={user.avatar} alt={user.name} className="w-24 h-24 rounded-full mx-auto mb-2 border-4 border-primary" />
                 <h2 className="font-bold text-xl text-neutral-dark">{user.name}</h2>
