@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import FeaturedJobs from './components/FeaturedJobs';
+import RotatingCarousel from './components/RotatingCarousel';
 import Stats from './components/Stats';
 import JobCategories from './components/JobCategories';
 import Testimonials from './components/Testimonials';
@@ -377,6 +378,7 @@ const App: React.FC = () => {
         return (
           <>
             <Hero onNavigate={navigate} />
+            <RotatingCarousel onNavigate={navigate} />
             <FeaturedJobs onViewJobDetails={handleViewJobDetails} onViewCompanyProfile={handleViewCompanyProfile} onNavigate={navigate}/>
             <WhyChooseUs />
             <Stats />
@@ -402,7 +404,7 @@ const App: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <div className={`bg-white text-neutral-dark flex flex-col min-h-screen ${currentPage !== 'landing' ? 'bg-neutral-light' : ''}`}>
+      <div className={`bg-white dark:bg-neutral-dark text-neutral-dark dark:text-white flex flex-col min-h-screen ${currentPage !== 'landing' ? 'bg-neutral-light dark:bg-neutral-dark' : ''}`}>
         <Header
           onNavigate={navigate}
           isAuthenticated={isAuthenticated}

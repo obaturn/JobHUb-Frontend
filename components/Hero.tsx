@@ -9,25 +9,10 @@ interface HeroProps {
 const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
   return (
     <section className="relative bg-gradient-to-br from-primary via-blue-700 to-secondary text-white py-20 md:py-32 overflow-hidden">
-      {/* Enhanced background animations */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/2 right-0 md:right-[5%] transform -translate-y-1/2 w-80 h-80 md:w-[30rem] md:h-[30rem] opacity-20 filter blur-md">
-          <div className="absolute w-full h-full rounded-full border-2 border-white/50 animate-rotate-cw"></div>
-          <div className="absolute w-2/3 h-2/3 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/50 animate-rotate-ccw"></div>
-          <div className="absolute w-1/3 h-1/3 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-accent animate-rotate-cw-fast"></div>
-        </div>
-        <div className="absolute top-10 left-[-150px] w-72 h-72 opacity-15 filter blur-md">
-          <div className="absolute w-full h-full rounded-full border border-white/50 animate-rotate-ccw-slow"></div>
-          <div className="absolute w-1/2 h-1/2 top-1/4 left-1/4 rounded-full border border-white/50 animate-rotate-cw"></div>
-        </div>
-        <div className="absolute bottom-10 right-[-100px] w-52 h-52 opacity-10 filter blur-lg">
-          <div className="absolute w-full h-full rounded-full border-2 border-white/50 animate-rotate-cw"></div>
-        </div>
-        {/* Floating particles */}
-        <div className="absolute top-20 left-20 w-2 h-2 bg-white/30 rounded-full animate-float"></div>
-        <div className="absolute top-40 right-32 w-1 h-1 bg-accent/50 rounded-full animate-float-delayed"></div>
-        <div className="absolute bottom-32 left-16 w-1.5 h-1.5 bg-white/40 rounded-full animate-float-slow"></div>
-      </div>
+      {/* Floating particles for extra visual interest */}
+      <div className="absolute top-20 left-20 w-2 h-2 bg-white/30 rounded-full animate-float"></div>
+      <div className="absolute top-40 right-32 w-1 h-1 bg-accent/50 rounded-full animate-float-delayed"></div>
+      <div className="absolute bottom-32 left-16 w-1.5 h-1.5 bg-white/40 rounded-full animate-float-slow"></div>
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
         <div className="animate-fade-in-up">
@@ -80,12 +65,24 @@ const Hero: React.FC<HeroProps> = ({ onNavigate }) => {
 
         {/* Trust indicators */}
         <div className="mt-16 animate-fade-in-up animation-delay-700">
-          <p className="text-blue-200 text-sm mb-4">Trusted by leading companies worldwide</p>
-          <div className="flex justify-center items-center gap-8 opacity-60">
-            <div className="text-white/80 font-semibold">Google</div>
-            <div className="text-white/80 font-semibold">Microsoft</div>
-            <div className="text-white/80 font-semibold">Amazon</div>
-            <div className="text-white/80 font-semibold">Meta</div>
+          <p className="text-blue-200 text-sm mb-6">Trusted by industry leaders and powered by modern technology</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-2xl mx-auto">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-white mb-1">50K+</div>
+              <div className="text-blue-200 text-xs">Companies</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-white mb-1">1M+</div>
+              <div className="text-blue-200 text-xs">Professionals</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-white mb-1">3M+</div>
+              <div className="text-blue-200 text-xs">Jobs Posted</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-white mb-1">24/7</div>
+              <div className="text-blue-200 text-xs">Support</div>
+            </div>
           </div>
         </div>
       </div>

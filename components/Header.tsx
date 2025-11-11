@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BriefcaseIcon, EnvelopeIcon } from '../constants';
 import { User, Notification, Page } from '../types';
 import { BellIcon } from './icons/BellIcon';
@@ -18,7 +18,38 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ onNavigate, isAuthenticated, onLogout, user, userType, notifications, onMarkAllRead }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('dark');
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'system' | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+    }
+    applyTheme(savedTheme || 'dark');
+  }, []);
+
+  const applyTheme = (newTheme: 'light' | 'dark' | 'system') => {
+    const root = document.documentElement;
+    root.classList.remove('light', 'dark');
+    if (newTheme === 'system') {
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      root.classList.add(systemTheme);
+      root.style.colorScheme = systemTheme;
+    } else {
+      root.classList.add(newTheme);
+      root.style.colorScheme = newTheme;
+    }
+  };
+
+  const toggleTheme = () => {
+    const themes: ('light' | 'dark' | 'system')[] = ['light', 'dark', 'system'];
+    const currentIndex = themes.indexOf(theme);
+    const nextTheme = themes[(currentIndex + 1) % themes.length];
+    setTheme(nextTheme);
+    localStorage.setItem('theme', nextTheme);
+    applyTheme(nextTheme);
+  };
+
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const navLinks = [
@@ -43,7 +74,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, isAuthenticated, onLogout, 
   }
 
   return (
-    <header className="bg-white/95 backdrop-blur-md fixed top-0 left-0 right-0 z-50 border-b border-gray-200 shadow-sm">
+    <header className="bg-white/95 dark:bg-neutral-dark/95 backdrop-blur-md fixed top-0 left-0 right-0 z-50 border-b border-gray-200 dark:border-gray-700 shadow-sm">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
@@ -53,12 +84,12 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, isAuthenticated, onLogout, 
             </button>
           </div>
           <div className="hidden md:flex items-center space-x-8">
-            {navLinks.map((link) => (
-              <button key={link.name} onClick={() => onNavigate(link.page)} className="text-gray-600 hover:text-primary transition-colors duration-200 font-medium">
-                {link.name}
-              </button>
-            ))}
-          </div>
+             {navLinks.map((link) => (
+               <button key={link.name} onClick={() => onNavigate(link.page)} className="text-gray-600 dark:text-gray-300 hover:text-primary transition-colors duration-200 font-medium">
+                 {link.name}
+               </button>
+             ))}
+           </div>
           <div className="hidden md:flex items-center space-x-4">
             {isAuthenticated && user ? (
               <div className="flex items-center space-x-5">
@@ -88,7 +119,10 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, isAuthenticated, onLogout, 
               </div>
             ) : (
               <>
-                <button onClick={() => onNavigate('login')} className="text-gray-600 hover:text-primary font-medium transition-colors duration-200">
+                <button onClick={toggleTheme} className="text-gray-600 dark:text-gray-300 hover:text-primary font-medium transition-colors duration-200 mr-4">
+                  {theme === 'light' ? '☀️' : theme === 'dark' ? '🌙' : '🖥️'}
+                </button>
+                <button onClick={() => onNavigate('login')} className="text-gray-600 dark:text-gray-300 hover:text-primary font-medium transition-colors duration-200">
                   Log In
                 </button>
                 <button
@@ -122,7 +156,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, isAuthenticated, onLogout, 
               </button>
             ))}
           </div>
-          <div className="pt-4 pb-3 border-t border-gray-200">
+          <div className="pt-4 pb-3 border-t border-gray-200 dark:border-gray-700">
             <div className="px-5 flex flex-col space-y-3">
                {isAuthenticated && user ? (
                  <>
@@ -138,7 +172,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, isAuthenticated, onLogout, 
                  </>
                ) : (
                  <>
-                    <button onClick={() => { onNavigate('login'); setIsMenuOpen(false); }} className="w-full text-center px-4 py-2 text-gray-600 hover:text-primary font-medium transition-colors duration-200">
+                    <button onClick={() => { onNavigate('login'); setIsMenuOpen(false); }} className="w-full text-center px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-primary font-medium transition-colors duration-200">
                         Log In
                     </button>
                     <button onClick={() => { onNavigate('signup'); setIsMenuOpen(false); }} className="w-full text-center px-4 py-2 bg-primary text-white rounded-md font-semibold shadow-md hover:bg-blue-700 transition-all duration-200">
