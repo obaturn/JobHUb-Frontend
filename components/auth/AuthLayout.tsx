@@ -1,11 +1,12 @@
 
 import React, { ReactNode } from 'react';
 import { BriefcaseIcon } from '../../constants';
+import { Page } from '../../types';
 
 interface AuthLayoutProps {
   title: string;
   children: ReactNode;
-  onNavigate: (page: 'landing' | 'login' | 'signup' | 'forgot_password') => void;
+  onNavigate: (page: Page) => void;
 }
 
 const AuthLayout: React.FC<AuthLayoutProps> = ({ title, children, onNavigate }) => {
