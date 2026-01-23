@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import AuthLayout from '../components/auth/AuthLayout';
-import { useAuthStore } from '../src/stores/authStore';
+import { useAuthStore } from '../stores/useAuthStore';
 
 interface ForgotPasswordPageProps {
     onNavigate: (page: 'login' | 'signup' | 'forgot_password' | 'landing') => void;

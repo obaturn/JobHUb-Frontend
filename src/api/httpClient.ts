@@ -167,8 +167,16 @@ export async function httpPost<T>(
   });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-    throw new Error(errorData.message || `POST ${url} failed with status ${response.status}`);
+    let errorData;
+    try {
+      errorData = await response.json();
+    } catch (e) {
+      errorData = { message: 'Unknown error' };
+    }
+    
+    const errorMessage = errorData.message || errorData.error || `POST ${url} failed with status ${response.status}`;
+    console.error(`🔴 [httpPost] Error ${response.status}:`, errorData);
+    throw new Error(errorMessage);
   }
 
   return response.json() as Promise<T>;

@@ -12,75 +12,280 @@ interface SignupPageProps {
 const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) => {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+    const [retryAttempt, setRetryAttempt] = useState(0);
+    const [signupSuccess, setSignupSuccess] = useState(false);
+    const [registeredEmail, setRegisteredEmail] = useState('');
+
+    // Password validation regex: 8+ chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
+    const validatePassword = (pwd: string): string[] => {
+        const errors: string[] = [];
+        if (pwd.length < 8) errors.push('At least 8 characters');
+        if (!/[A-Z]/.test(pwd)) errors.push('One uppercase letter');
+        if (!/[a-z]/.test(pwd)) errors.push('One lowercase letter');
+        if (!/\d/.test(pwd)) errors.push('One number');
+        if (!/[!@#$%^&*(),.?":{}|<>]/.test(pwd)) errors.push('One special character (!@#$%^&*...)');
+        return errors;
+    };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        const formData = new FormData(e.currentTarget);
-        const name = formData.get('name') as string;
-        const email = formData.get('email') as string;
-        const password = formData.get('password') as string;
-        const confirmPassword = formData.get('confirm-password') as string;
+        console.log('📝 Form submission started');
+        setError(null);
+        setFieldErrors({});
 
-        if (password !== confirmPassword) {
-            alert('Passwords do not match');
+        const formData = new FormData(e.currentTarget);
+        const firstName = (formData.get('firstName') as string).trim();
+        const lastName = (formData.get('lastName') as string).trim();
+        const email = (formData.get('email') as string).trim();
+        const newErrors: Record<string, string> = {};
+
+        console.log('📋 Form data:', { firstName, lastName, email, passwordLength: password.length });
+
+        // Validate first name
+        if (!firstName) {
+            newErrors.firstName = 'First name is required';
+        }
+
+        // Validate last name
+        if (!lastName) {
+            newErrors.lastName = 'Last name is required';
+        }
+
+        // Validate email
+        if (!email) {
+            newErrors.email = 'Email is required';
+        }
+
+        // Validate password
+        if (!password) {
+            newErrors.password = 'Password is required';
+        } else {
+            const passwordErrors = validatePassword(password);
+            if (passwordErrors.length > 0) {
+                newErrors.password = `Password must contain: ${passwordErrors.join(', ')}`;
+            }
+        }
+
+        // Validate confirm password
+        if (!confirmPassword) {
+            newErrors.confirmPassword = 'Please confirm your password';
+        } else if (password !== confirmPassword) {
+            newErrors.confirmPassword = 'Passwords do not match';
+        }
+
+        if (Object.keys(newErrors).length > 0) {
+            console.warn('❌ Validation failed:', newErrors);
+            setFieldErrors(newErrors);
             return;
         }
 
         try {
+            setLoading(true);
+            setRetryAttempt(0);
+            console.log('🔄 Starting signup process...');
+            
+            console.log('👤 Signup data:', { firstName, lastName, email });
+
             // Import and use the auth store
-            const { useAuthStore } = await import('../src/stores/authStore');
+            const { useAuthStore } = await import('../stores/useAuthStore');
             const authStore = useAuthStore.getState();
             
-            // Split name into firstName and lastName
-            const nameParts = name.trim().split(' ');
-            const firstName = nameParts[0] || '';
-            const lastName = nameParts.slice(1).join(' ') || nameParts[0];
-            
+            console.log('📤 Calling signup API...');
             await authStore.signup({
+                firstName,
+                lastName,
                 email,
                 password,
-                firstName,
-                lastName
+                userType: 'job_seeker'
             });
             
-            // Show success message
-            alert('Registration successful! Welcome to JobHub!');
-
-            // Trigger auto-login and dashboard navigation
-            onLoginSuccess();
+            console.log('✅ Signup successful!');
+            // Don't auto-login, show email verification message instead
+            setRegisteredEmail(email);
+            setSignupSuccess(true);
         } catch (error) {
-            console.error('Signup failed:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Signup failed. Please try again.';
-            alert(errorMessage);
+            console.error('❌ Signup failed:', error);
+            
+            // Parse backend validation errors
+            if (error instanceof Error) {
+                const message = error.message;
+                console.log('📌 Error message:', message);
+                
+                if (message.includes('firstName')) {
+                    newErrors.firstName = 'First name is required';
+                }
+                if (message.includes('lastName')) {
+                    newErrors.lastName = 'Last name is required';
+                }
+                if (message.includes('passwordHash') || message.includes('password')) {
+                    newErrors.password = 'Password must be at least 8 characters with uppercase, lowercase, number, and special character';
+                }
+                if (Object.keys(newErrors).length > 0) {
+                    console.log('🔴 Field errors:', newErrors);
+                    setFieldErrors(newErrors);
+                } else {
+                    console.log('🔴 General error:', message);
+                    // Check if this was a concurrent modification error (retried)
+                    if (message.includes('Concurrent') && retryAttempt > 0) {
+                        setError(`${message} (Retry ${retryAttempt}/3 completed. Please try again.)`);
+                    } else if (message.includes('Concurrent')) {
+                        setError('Server is processing your request. Retrying automatically...');
+                        setRetryAttempt(1);
+                    } else {
+                        setError(message);
+                    }
+                }
+            } else {
+                console.log('🔴 Unknown error type');
+                setError('Signup failed. Please try again.');
+            }
+        } finally {
+            setLoading(false);
+            console.log('🏁 Signup process ended');
         }
     };
 
     return (
         <AuthLayout title="Join JobHub today" onNavigate={onNavigate}>
+            {/* Email Verification Success Screen */}
+            {signupSuccess && (
+                <div className="text-center space-y-6">
+                    {/* Success Icon */}
+                    <div className="flex justify-center">
+                        <div className="w-16 h-16 bg-success-100 rounded-full flex items-center justify-center">
+                            <svg className="w-8 h-8 text-success-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                        </div>
+                    </div>
+
+                    {/* Success Message */}
+                    <div>
+                        <h2 className="text-2xl font-bold text-neutral-dark mb-2">Registration Successful!</h2>
+                        <p className="text-gray-600">
+                            We've sent a verification email to <span className="font-semibold text-neutral-dark">{registeredEmail}</span>
+                        </p>
+                    </div>
+
+                    {/* Instructions */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-left">
+                        <h3 className="font-semibold text-blue-900 mb-2">Next steps:</h3>
+                        <ol className="text-sm text-blue-800 space-y-2 list-decimal list-inside">
+                            <li>Check your email inbox for a verification link</li>
+                            <li>Click the link to verify your email address</li>
+                            <li>Return here and login with your credentials</li>
+                        </ol>
+                    </div>
+
+                    {/* Buttons */}
+                    <div className="space-y-3 pt-4">
+                        <button
+                            onClick={() => onNavigate('login')}
+                            className="w-full px-6 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-semibold transition-colors"
+                        >
+                            Go to Login
+                        </button>
+                        <button
+                            onClick={() => {
+                                setSignupSuccess(false);
+                                setError(null);
+                                setFieldErrors({});
+                            }}
+                            className="w-full px-6 py-3 border border-gray-300 hover:border-gray-400 text-gray-700 rounded-xl font-semibold transition-colors"
+                        >
+                            Create Another Account
+                        </button>
+                    </div>
+
+                    {/* Development Helper */}
+                    <div className="border-t border-gray-200 pt-4 mt-4">
+                        <p className="text-xs text-gray-500 mb-2">Development: Need help verifying?</p>
+                        <button
+                            onClick={() => {
+                                // Copy verification link instructions
+                                const message = `Verification email sent to ${registeredEmail}. Check your email for the verification link with format: /api/auth/verify-email?token=...`;
+                                alert(message);
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-700 underline"
+                        >
+                            Show verification instructions
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Registration Form (hidden when signup successful) */}
+            {!signupSuccess && (
+                <>
             {/* Welcome Message */}
             <div className="mb-8 text-center">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Create your account</h2>
+                <h2 className="text-2xl font-bold text-neutral-dark mb-2">Create your account</h2>
                 <p className="text-gray-600">Join millions of professionals building their careers</p>
             </div>
 
-            <form className="space-y-6" onSubmit={handleSubmit}>
-                <div className="space-y-2">
-                    <label htmlFor="name" className="block text-sm font-semibold text-gray-700">
-                        Full Name
-                    </label>
-                    <div className="relative">
-                        <input
-                            id="name"
-                            name="name"
-                            type="text"
-                            autoComplete="name"
-                            required
-                            className="appearance-none block w-full px-4 py-3 border border-gray-600 bg-gray-800 rounded-xl shadow-sm placeholder-gray-400 text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
-                            placeholder="Enter your full name"
-                        />
-                        <svg className="absolute right-3 top-3.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            {/* Error Alert */}
+            {error && (
+                <div className="mb-6 p-4 bg-error-50 border border-error-200 rounded-xl">
+                    <div className="flex items-start gap-3">
+                        <svg className="w-5 h-5 text-error-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                         </svg>
+                        <p className="text-sm text-error-700 font-medium">{error}</p>
+                    </div>
+                </div>
+            )}
+
+            <form className="space-y-6" onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <label htmlFor="firstName" className="block text-sm font-semibold text-gray-700">
+                            First Name
+                        </label>
+                        <div className="relative">
+                            <input
+                                id="firstName"
+                                name="firstName"
+                                type="text"
+                                autoComplete="given-name"
+                                required
+                                className={`appearance-none block w-full px-4 py-3 border rounded-xl shadow-sm placeholder-gray-400 text-neutral-dark focus:outline-none focus:ring-2 transition-all duration-200 bg-gray-50 ${fieldErrors.firstName ? 'border-error-500 focus:ring-error/20 focus:border-error-600' : 'border-gray-200 focus:ring-primary/20 focus:border-primary'}`}
+                                placeholder="e.g., John"
+                            />
+                            <svg className={`absolute right-3 top-3.5 w-5 h-5 ${fieldErrors.firstName ? 'text-error-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                        </div>
+                        {fieldErrors.firstName && (
+                            <p className="text-sm text-error-600 font-medium">{fieldErrors.firstName}</p>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <label htmlFor="lastName" className="block text-sm font-semibold text-gray-700">
+                            Last Name
+                        </label>
+                        <div className="relative">
+                            <input
+                                id="lastName"
+                                name="lastName"
+                                type="text"
+                                autoComplete="family-name"
+                                required
+                                className={`appearance-none block w-full px-4 py-3 border rounded-xl shadow-sm placeholder-gray-400 text-neutral-dark focus:outline-none focus:ring-2 transition-all duration-200 bg-gray-50 ${fieldErrors.lastName ? 'border-error-500 focus:ring-error/20 focus:border-error-600' : 'border-gray-200 focus:ring-primary/20 focus:border-primary'}`}
+                                placeholder="e.g., Doe"
+                            />
+                            <svg className={`absolute right-3 top-3.5 w-5 h-5 ${fieldErrors.lastName ? 'text-error-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                        </div>
+                        {fieldErrors.lastName && (
+                            <p className="text-sm text-error-600 font-medium">{fieldErrors.lastName}</p>
+                        )}
                     </div>
                 </div>
 
@@ -96,13 +301,16 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
                             type="email"
                             autoComplete="email"
                             required
-                            className="appearance-none block w-full px-4 py-3 border border-gray-600 bg-gray-800 rounded-xl shadow-sm placeholder-gray-400 text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                            className={`appearance-none block w-full px-4 py-3 border rounded-xl shadow-sm placeholder-gray-400 text-neutral-dark focus:outline-none focus:ring-2 transition-all duration-200 bg-gray-50 ${fieldErrors.email ? 'border-error-500 focus:ring-error/20 focus:border-error-600' : 'border-gray-200 focus:ring-primary/20 focus:border-primary'}`}
                             placeholder="you@example.com"
                         />
-                        <svg className="absolute right-3 top-3.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className={`absolute right-3 top-3.5 w-5 h-5 ${fieldErrors.email ? 'text-error-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
                         </svg>
                     </div>
+                    {fieldErrors.email && (
+                        <p className="text-sm text-error-600 font-medium">{fieldErrors.email}</p>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -116,13 +324,15 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
                                 name="password"
                                 type={showPassword ? "text" : "password"}
                                 required
-                                className="appearance-none block w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className={`appearance-none block w-full px-4 py-3 pr-12 rounded-xl shadow-sm placeholder-gray-400 text-neutral-dark focus:outline-none focus:ring-2 transition-all duration-200 border bg-gray-50 ${fieldErrors.password ? 'border-error-500 focus:ring-error/20 focus:border-error-600' : password.length === 0 ? 'border-gray-200 focus:ring-primary/20 focus:border-primary' : 'border-gray-300 focus:ring-primary/20 focus:border-primary'}`}
                                 placeholder="••••••••"
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-3 top-3.5 w-5 h-5 text-gray-400 hover:text-gray-600"
+                                className={`absolute right-3 top-3.5 w-5 h-5 ${fieldErrors.password ? 'text-error-500' : 'text-gray-400 hover:text-gray-600'}`}
                             >
                                 {showPassword ? (
                                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -136,6 +346,9 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
                                 )}
                             </button>
                         </div>
+                        {fieldErrors.password && (
+                            <p className="text-sm text-error-600 font-medium">{fieldErrors.password}</p>
+                        )}
                     </div>
 
                     <div className="space-y-2">
@@ -148,13 +361,30 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
                                 name="confirm-password"
                                 type={showConfirmPassword ? "text" : "password"}
                                 required
-                                className="appearance-none block w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                aria-invalid={fieldErrors.confirmPassword ? 'true' : 'false'}
+                                className={`appearance-none block w-full px-4 py-3 pr-12 rounded-xl shadow-sm placeholder-gray-400 text-neutral-dark focus:outline-none focus:ring-2 transition-all duration-200 border bg-gray-50 ${
+                                    fieldErrors.confirmPassword 
+                                        ? 'border-error-500 focus:ring-error/20 focus:border-error-600' 
+                                        : confirmPassword.length === 0 
+                                            ? 'border-gray-200 focus:ring-primary/20 focus:border-primary' 
+                                            : password === confirmPassword 
+                                                ? 'border-success-500 focus:ring-success/20 focus:border-success-600' 
+                                                : 'border-error-500 focus:ring-error/20 focus:border-error-600'
+                                }`}
                                 placeholder="••••••••"
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                className="absolute right-3 top-3.5 w-5 h-5 text-gray-400 hover:text-gray-600"
+                                className={`absolute right-3 top-3.5 w-5 h-5 ${
+                                    fieldErrors.confirmPassword 
+                                        ? 'text-error-500' 
+                                        : confirmPassword && password === confirmPassword 
+                                            ? 'text-success-500' 
+                                            : 'text-gray-400 hover:text-gray-600'
+                                }`}
                             >
                                 {showConfirmPassword ? (
                                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -168,21 +398,42 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
                                 )}
                             </button>
                         </div>
+                        {fieldErrors.confirmPassword && (
+                            <p className="text-sm text-error-600 font-medium">{fieldErrors.confirmPassword}</p>
+                        )}
+                        {!fieldErrors.confirmPassword && confirmPassword && (
+                            <p className={`text-sm ${password === confirmPassword ? 'text-success-600 font-medium' : 'text-error-600 font-medium'}`}>
+                                {password === confirmPassword ? '✓ Passwords match' : '✗ Passwords do not match'}
+                            </p>
+                        )}
                     </div>
                 </div>
 
 
-                <div>
-                    <button
-                        type="submit"
-                        className="group w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-semibold text-white bg-primary hover:bg-primary-dark hover:shadow-lg transform hover:scale-105 transition-all duration-200"
-                    >
-                        <svg className="w-5 h-5 mr-2 group-hover:rotate-12 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                        </svg>
-                        Join JobHub
-                    </button>
-                </div>
+
+
+                <button
+                    type="submit"
+                    disabled={loading || !!Object.keys(fieldErrors).length}
+                    className="group w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-semibold text-white bg-primary hover:bg-primary-dark hover:shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                    {loading ? (
+                        <>
+                            <svg className="w-5 h-5 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none" opacity="0.25" />
+                                <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            Creating account...
+                        </>
+                    ) : (
+                        <>
+                            <svg className="w-5 h-5 mr-2 group-hover:rotate-12 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                            </svg>
+                            Join JobHub
+                        </>
+                    )}
+                </button>
             </form>
 
             <div className="mt-6">
@@ -215,6 +466,8 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
                     </button>
                 </p>
             </div>
+                </>
+            )}
         </AuthLayout>
     );
 };

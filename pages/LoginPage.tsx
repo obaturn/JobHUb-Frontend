@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import AuthLayout from '../components/auth/AuthLayout';
 import SocialLoginButtons from '../components/auth/SocialLoginButtons';
-import { useAuthStore } from '../src/stores/authStore';
+import { useAuthStore } from '../stores/useAuthStore';
 import { Page, User } from '../types';
 
 interface LoginPageProps {
@@ -12,7 +12,7 @@ interface LoginPageProps {
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, onLoginSuccess, onEmployerLogin, onAdminLogin }) => {
-    const { login } = useAuthStore();
+    const { login, user } = useAuthStore();
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -28,13 +28,22 @@ const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, onLoginSuccess, onEmp
         const deviceId = `device-${Date.now()}`; // Generate device ID
 
         try {
-            const user = await login({ email, password, deviceId });
-            // If we get here without MFA, login was successful
-            onLoginSuccess(user);
+            await login({ email, password, deviceId });
+            // Get the user from store state after successful login
+            const loggedInUser = useAuthStore.getState().user;
+            if (loggedInUser) {
+                onLoginSuccess(loggedInUser);
+            }
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Login failed';
             
-            setError(errorMessage || 'Login failed. Please check your credentials.');
+            // Check if it's an email verification error
+            if (errorMessage.includes('Email not verified')) {
+                console.warn('📧 [LoginPage] Email verification required');
+                setError('❌ Email not verified. Please check your email for the verification link and click it to activate your account.');
+            } else {
+                setError(errorMessage || 'Login failed. Please check your credentials.');
+            }
         } finally {
             setLoading(false);
         }
@@ -103,7 +112,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, onLoginSuccess, onEmp
 
                 {/* Error Message */}
                 {error && (
-                    <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                    <div className="p-4 rounded-lg bg-red-50 border border-red-200">
                         <p className="text-sm text-red-600">{error}</p>
                     </div>
                 )}

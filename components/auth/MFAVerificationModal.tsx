@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useAuthStore } from '../../src/stores/authStore';
+import { useAuthStore } from '../../stores/useAuthStore';
+import { verifyTOTPForLogin } from '../../src/api/mfaApi';
 import LoadingSpinner from '../LoadingSpinner';
 
 interface MFAVerificationModalProps {
@@ -55,7 +56,15 @@ const MFAVerificationModal: React.FC<MFAVerificationModalProps> = ({
       setLoading(true);
       setError(null);
 
-      await completeMFALogin(mfaToken, code);
+      // Verify the code with the backend
+      const response = await verifyTOTPForLogin(mfaToken, code);
+
+      // Complete MFA login with the returned user data
+      completeMFALogin({
+        accessToken: 'mock-token', // Mock token for now
+        user: response.user,
+        expiresIn: 3600,
+      });
 
       // Success callback
       onSuccess();

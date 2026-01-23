@@ -24,7 +24,7 @@ interface AuthState {
   // Actions
   login: (credentials: { email: string; password: string; deviceId?: string }) => Promise<void>;
   completeMFALogin: (tokens: { accessToken: string; user: any; expiresIn: number }) => void;
-  signup: (userData: { name: string; email: string; password: string; userType?: string }) => Promise<void>;
+  signup: (userData: { firstName: string; lastName: string; email: string; password: string; userType?: 'job_seeker' | 'employer' | 'admin' }) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => void;
@@ -119,12 +119,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
 
     try {
+      console.log('🔐 [AuthStore] Starting signup with:', { 
+        email: userData.email, 
+        firstName: userData.firstName, 
+        lastName: userData.lastName,
+        userType: userData.userType
+      });
+      
       const response = await authApi.signup({
-        name: userData.name,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
         email: userData.email,
         password: userData.password,
         userType: userData.userType || 'job_seeker',
       });
+
+      console.log('✅ [AuthStore] Signup response received:', response);
 
       // Store tokens
       localStorage.setItem('accessToken', response.accessToken);
@@ -137,7 +147,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: true,
         loading: false,
       });
+      
+      console.log('✅ [AuthStore] Signup completed successfully');
     } catch (error) {
+      console.error('❌ [AuthStore] Signup error:', error);
       const message = error instanceof Error ? error.message : 'Signup failed';
       set({ error: message, loading: false });
       throw error;
