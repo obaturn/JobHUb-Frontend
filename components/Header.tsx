@@ -53,9 +53,10 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, isAuthenticated, onLogout, 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const navLinks = [
+      { name: 'Home', page: 'landing' as Page },
       { name: 'Find Jobs', page: 'job_search' as Page },
       { name: 'Companies', page: 'job_search' as Page },
-      { name: 'About', page: 'landing' as Page },
+      { name: 'About', page: 'about' as Page },
   ];
 
   const handleDashboardClick = () => {
@@ -72,6 +73,9 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, isAuthenticated, onLogout, 
       e.stopPropagation();
       setIsNotificationsOpen(prev => !prev);
   }
+
+  // Defensive display name (some user objects may be missing `name` at runtime)
+  const displayName = user ? ((user.name || user.email || 'User').split(' ')[0]) : 'User';
 
   return (
     <header className="bg-white/95 dark:bg-neutral-dark/95 backdrop-blur-md fixed top-0 left-0 right-0 z-50 border-b border-gray-200 dark:border-gray-700 shadow-sm">
@@ -106,10 +110,10 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, isAuthenticated, onLogout, 
 
                 <div className="h-8 w-px bg-gray-200" />
 
-                <button onClick={handleDashboardClick} className="flex items-center space-x-2 group">
+                 <button onClick={handleDashboardClick} className="flex items-center space-x-2 group">
                    <img src={user.avatar} alt="User avatar" className="w-8 h-8 rounded-full border-2 border-transparent group-hover:border-primary transition-colors"/>
-                   <span className="font-medium text-gray-600 group-hover:text-primary">{user.name.split(' ')[0]}</span>
-                </button>
+                   <span className="font-medium text-gray-600 group-hover:text-primary">{displayName}</span>
+                 </button>
                 <button
                   onClick={onLogout}
                   className="text-gray-600 hover:text-primary font-medium transition-colors duration-200"

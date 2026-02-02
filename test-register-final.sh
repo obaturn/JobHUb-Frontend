@@ -9,14 +9,14 @@ echo ""
 EMAIL="testuser_$(date +%s)@example.com"
 
 echo "Test Details:"
-echo "- Backend: http://localhost:8080"
+echo "- Backend: http://localhost:8081"
 echo "- Endpoint: POST /api/v1/auth/register"
 echo "- Email: $EMAIL"
 echo "- Password: Test@123456"
 echo ""
 
 # Make the request
-RESPONSE=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8080/api/v1/auth/register \
+RESPONSE=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8081/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "'$EMAIL'",

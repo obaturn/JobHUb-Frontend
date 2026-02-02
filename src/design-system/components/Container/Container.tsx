@@ -40,9 +40,7 @@ const Container: React.FC<ContainerProps> = ({
     'w-full',
     sizeStyles[size],
     paddingStyles[padding],
-    {
-      'mx-auto': centerContent && size !== 'full',
-    },
+    centerContent && size !== 'full' ? 'mx-auto' : '',
     className
   );
 

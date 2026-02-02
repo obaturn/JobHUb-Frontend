@@ -57,11 +57,17 @@ function clearTokens(): void {
 async function refreshAccessToken(): Promise<RefreshTokenResponse> {
   const refreshToken = getRefreshToken();
   
-  if (!refreshToken) {
+  // Check if refresh token is valid
+  if (!refreshToken || refreshToken === 'undefined' || refreshToken === 'null' || refreshToken.trim() === '') {
+    console.warn('No valid refresh token available for refresh');
+    clearTokens();
+    window.location.href = '/login';
     throw new Error('No refresh token available');
   }
 
-  const response = await fetch('/api/v1/auth/refresh-token', {
+  console.log('🔄 [httpClient] Attempting token refresh...');
+
+  const response = await fetch('/api/v1/auth/refresh', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -70,12 +76,14 @@ async function refreshAccessToken(): Promise<RefreshTokenResponse> {
   });
 
   if (!response.ok) {
+    console.error('❌ [httpClient] Token refresh failed with status:', response.status);
     clearTokens();
     window.location.href = '/login';
     throw new Error('Token refresh failed');
   }
 
   const data = (await response.json()) as RefreshTokenResponse;
+  console.log('✅ [httpClient] Token refresh successful');
   storeTokens(data.accessToken, data.refreshToken);
   return data;
 }

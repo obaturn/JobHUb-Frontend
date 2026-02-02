@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import AuthLayout from '../components/auth/AuthLayout';
 import SocialLoginButtons from '../components/auth/SocialLoginButtons';
+import Toast from '../components/Toast';
 import { Page } from '../types';
 
 interface SignupPageProps {
@@ -20,6 +21,10 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
     const [retryAttempt, setRetryAttempt] = useState(0);
     const [signupSuccess, setSignupSuccess] = useState(false);
     const [registeredEmail, setRegisteredEmail] = useState('');
+    const [resendLoading, setResendLoading] = useState(false);
+    const [resendMessage, setResendMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [resendCooldown, setResendCooldown] = useState(0);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     // Password validation regex: 8+ chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
     const validatePassword = (pwd: string): string[] => {
@@ -30,6 +35,41 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
         if (!/\d/.test(pwd)) errors.push('One number');
         if (!/[!@#$%^&*(),.?":{}|<>]/.test(pwd)) errors.push('One special character (!@#$%^&*...)');
         return errors;
+    };
+
+    // Handle resend verification email
+    const handleResendVerification = async () => {
+        if (resendCooldown > 0) return;
+        
+        try {
+            setResendLoading(true);
+            setResendMessage(null);
+            console.log('📧 [SignupPage] Requesting resend verification for:', registeredEmail);
+            
+            const { resendVerificationEmail } = await import('../src/api/authApi');
+            await resendVerificationEmail(registeredEmail);
+            
+            console.log('✅ [SignupPage] Verification email resent successfully');
+            setResendMessage({ type: 'success', text: '✓ Verification email resent! Check your inbox and spam folder.' });
+            
+            // Start 60-second cooldown
+            setResendCooldown(60);
+            const interval = setInterval(() => {
+                setResendCooldown(prev => {
+                    if (prev <= 1) {
+                        clearInterval(interval);
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to resend verification email';
+            console.error('❌ [SignupPage] Resend error:', error);
+            setResendMessage({ type: 'error', text: `Error: ${message}` });
+        } finally {
+            setResendLoading(false);
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -139,10 +179,14 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
                     } else {
                         setError(message);
                     }
+                    // Show toast notification for error
+                    setToast({ message, type: 'error' });
                 }
             } else {
                 console.log('🔴 Unknown error type');
-                setError('Signup failed. Please try again.');
+                const errorMsg = 'Signup failed. Please try again.';
+                setError(errorMsg);
+                setToast({ message: errorMsg, type: 'error' });
             }
         } finally {
             setLoading(false);
@@ -151,7 +195,17 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
     };
 
     return (
-        <AuthLayout title="Join JobHub today" onNavigate={onNavigate}>
+        <>
+            {/* Toast Notification */}
+            {toast && (
+                <Toast 
+                    message={toast.message} 
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
+            
+            <AuthLayout title="Join JobHub today" onNavigate={onNavigate}>
             {/* Email Verification Success Screen */}
             {signupSuccess && (
                 <div className="text-center space-y-6">
@@ -182,6 +236,46 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
                         </ol>
                     </div>
 
+                    {/* Resend Verification Section */}
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                        <p className="text-sm text-amber-900 mb-3">
+                            Didn't receive the email? Check your spam folder or request a new verification link.
+                        </p>
+                        <button
+                            onClick={handleResendVerification}
+                            disabled={resendLoading || resendCooldown > 0}
+                            className={`w-full px-4 py-2 rounded-lg font-semibold transition-colors text-sm ${
+                                resendCooldown > 0 || resendLoading
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    : 'bg-amber-100 hover:bg-amber-200 text-amber-900'
+                            }`}
+                        >
+                            {resendLoading ? (
+                                <span className="flex items-center justify-center gap-2">
+                                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Sending...
+                                </span>
+                            ) : resendCooldown > 0 ? (
+                                `Resend in ${resendCooldown}s`
+                            ) : (
+                                'Resend Verification Email'
+                            )}
+                        </button>
+                        {resendMessage && (
+                            <div className={`mt-3 p-2 rounded text-sm ${
+                                resendMessage.type === 'success'
+                                    ? 'bg-success-50 text-success-700'
+                                    : 'bg-error-50 text-error-700'
+                            }`}>
+                                {resendMessage.type === 'success' ? '✓ ' : '✕ '}
+                                {resendMessage.text}
+                            </div>
+                        )}
+                    </div>
+
                     {/* Buttons */}
                     <div className="space-y-3 pt-4">
                         <button
@@ -195,6 +289,8 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
                                 setSignupSuccess(false);
                                 setError(null);
                                 setFieldErrors({});
+                                setResendMessage(null);
+                                setResendCooldown(0);
                             }}
                             className="w-full px-6 py-3 border border-gray-300 hover:border-gray-400 text-gray-700 rounded-xl font-semibold transition-colors"
                         >
@@ -230,13 +326,34 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
 
             {/* Error Alert */}
             {error && (
-                <div className="mb-6 p-4 bg-error-50 border border-error-200 rounded-xl">
-                    <div className="flex items-start gap-3">
-                        <svg className="w-5 h-5 text-error-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                        <p className="text-sm text-error-700 font-medium">{error}</p>
+                <div className="mb-6 p-5 bg-red-50 border-l-4 border-red-500 rounded-xl shadow-sm animate-shake">
+                    <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0">
+                            <svg className="w-6 h-6 text-red-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="text-sm font-bold text-red-900 mb-1">Registration Failed</h3>
+                            <p className="text-sm text-red-800">{error}</p>
+                        </div>
+                        <button
+                            onClick={() => setError(null)}
+                            className="flex-shrink-0 text-red-600 hover:text-red-900 transition-colors"
+                        >
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                        </button>
                     </div>
+                    <style>{`
+                        @keyframes shake {
+                            0%, 100% { transform: translateX(0); }
+                            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+                            20%, 40%, 60%, 80% { transform: translateX(5px); }
+                        }
+                        .animate-shake { animation: shake 0.5s ease-in-out; }
+                    `}</style>
                 </div>
             )}
 
@@ -468,7 +585,8 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
             </div>
                 </>
             )}
-        </AuthLayout>
+            </AuthLayout>
+        </>
     );
 };
 

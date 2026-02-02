@@ -1,7 +1,7 @@
 import React from 'react';
 import type { ReactElement } from 'react';
 
-export type Page = 'landing' | 'login' | 'signup' | 'forgot_password' | 'onboarding' | 'universal_dashboard' | 'job_search' | 'job_details' | 'job_seeker_dashboard' | 'employer_dashboard' | 'admin_dashboard' | 'company_profile' | 'messaging' | 'create_job';
+export type Page = 'landing' | 'login' | 'signup' | 'email_verification' | 'forgot_password' | 'onboarding' | 'universal_dashboard' | 'job_search' | 'job_details' | 'job_seeker_dashboard' | 'employer_dashboard' | 'admin_dashboard' | 'company_profile' | 'messaging' | 'create_job';
 
 export interface Job {
   id: number;

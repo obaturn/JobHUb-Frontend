@@ -27,6 +27,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, onLoginSuccess, onEmp
         const password = formData.get('password') as string;
         const deviceId = `device-${Date.now()}`; // Generate device ID
 
+        // Debug logging
+        console.log('🔐 [LoginPage] Login attempt:', {
+            email,
+            passwordLength: password.length,
+            passwordBytes: new TextEncoder().encode(password).length,
+            passwordPreview: password.substring(0, 3) + '***' // Don't log full password in production
+        });
+
         try {
             await login({ email, password, deviceId });
             // Get the user from store state after successful login
@@ -50,7 +58,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, onLoginSuccess, onEmp
     };
     
     return (
-        <AuthLayout title="Welcome back - Demo Credentials" onNavigate={onNavigate}>
+        <AuthLayout title="Welcome back" onNavigate={onNavigate}>
+            {/* Welcome Message */}
+            <div className="mb-8 text-center">
+                <h2 className="text-2xl font-bold text-neutral-dark mb-2">Sign in to your account</h2>
+                <p className="text-gray-600">Continue your professional journey</p>
+            </div>
+
             <form className="space-y-6" onSubmit={handleSubmit}>
                 <div className="space-y-2">
                     <label htmlFor="email" className="block text-sm font-semibold text-gray-700">
@@ -64,9 +78,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, onLoginSuccess, onEmp
                             autoComplete="email"
                             required
                             disabled={loading}
-                            className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 disabled:opacity-50"
-                            placeholder="alex.doe@example.com (Job Seeker)"
-                            defaultValue="alex.doe@example.com"
+                            className="appearance-none block w-full px-4 py-3 border border-gray-200 rounded-xl shadow-sm placeholder-gray-400 text-neutral-dark focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 bg-gray-50 disabled:opacity-50"
+                            placeholder="Enter your email address"
                         />
                         <svg className="absolute right-3 top-3.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
@@ -86,9 +99,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, onLoginSuccess, onEmp
                             autoComplete="current-password"
                             required
                             disabled={loading}
-                            className="appearance-none block w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 disabled:opacity-50"
-                            placeholder="password123"
-                            defaultValue="password123"
+                            className="appearance-none block w-full px-4 py-3 pr-12 border border-gray-200 rounded-xl shadow-sm placeholder-gray-400 text-neutral-dark focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 bg-gray-50 disabled:opacity-50"
+                            placeholder="Enter your password"
                         />
                         <button
                             type="button"
@@ -112,8 +124,26 @@ const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, onLoginSuccess, onEmp
 
                 {/* Error Message */}
                 {error && (
-                    <div className="p-4 rounded-lg bg-red-50 border border-red-200">
-                        <p className="text-sm text-red-600">{error}</p>
+                    <div className="p-5 bg-red-50 border-l-4 border-red-500 rounded-xl shadow-sm">
+                        <div className="flex items-start gap-4">
+                            <div className="flex-shrink-0">
+                                <svg className="w-6 h-6 text-red-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                </svg>
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-sm font-bold text-red-900 mb-1">Login Failed</h3>
+                                <p className="text-sm text-red-800">{error}</p>
+                            </div>
+                            <button
+                                onClick={() => setError(null)}
+                                className="flex-shrink-0 text-red-600 hover:text-red-900 transition-colors"
+                            >
+                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 )}
 

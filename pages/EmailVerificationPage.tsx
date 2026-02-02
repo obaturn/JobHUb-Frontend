@@ -1,73 +1,168 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import AuthLayout from '../components/auth/AuthLayout';
 import { Page } from '../types';
 
 interface EmailVerificationPageProps {
     onNavigate: (page: Page) => void;
+    onLoginSuccess?: () => void;
 }
 
-const EmailVerificationPage: React.FC<EmailVerificationPageProps> = ({ onNavigate }) => {
+const EmailVerificationPage: React.FC<EmailVerificationPageProps> = ({ onNavigate, onLoginSuccess }) => {
     const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
     const [message, setMessage] = useState('Verifying your email...');
+    // Use ref to prevent multiple API calls in React 18 Strict Mode
+    const verificationAttempted = useRef(false);
 
     useEffect(() => {
         const verifyEmail = async () => {
+            // Guard against multiple invocations (React 18 Strict Mode runs effects twice)
+            if (verificationAttempted.current) {
+                console.log('⚠️ [EmailVerificationPage] Verification already attempted, skipping');
+                return;
+            }
+            verificationAttempted.current = true;
+
             // Get token from URL query parameter
+            // URLSearchParams.get() automatically decodes URL-encoded characters
             const searchParams = new URLSearchParams(window.location.search);
             const token = searchParams.get('token');
 
+            console.log('📧 [EmailVerificationPage] ========== EMAIL VERIFICATION STARTED ==========');
+            console.log('📧 [EmailVerificationPage] Full URL:', window.location.href);
+            console.log('📧 [EmailVerificationPage] Search params raw:', window.location.search);
+
             if (!token) {
+                console.error('❌ [EmailVerificationPage] No token found in URL query parameters');
                 setStatus('error');
                 setMessage('Verification token is missing. Please click the link from your email again.');
                 return;
             }
 
+            // Log token details for debugging
+            console.log('📧 [EmailVerificationPage] Token extracted (length:', token.length, ')');
+            console.log('📧 [EmailVerificationPage] Token (full):', token);
+            console.log('📧 [EmailVerificationPage] Token format check:', /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token) ? 'Valid UUID' : 'Not a UUID');
+
             try {
-                console.log('📧 [EmailVerificationPage] Verifying email with token:', token);
+                // PRIMARY METHOD: Use GET request (backend supports @GetMapping)
+                // The backend expects: GET /api/v1/auth/verify-email?token=<UUID>
+                // We need to encode the token for URL safety
+                const encodedToken = encodeURIComponent(token);
+                const verifyUrl = `/api/v1/auth/verify-email?token=${encodedToken}`;
                 
-                const response = await fetch('/api/v1/auth/verify-email', {
-                    method: 'POST',
+                console.log('📧 [EmailVerificationPage] Calling backend GET:', verifyUrl);
+                console.log('📧 [EmailVerificationPage] Encoded token:', encodedToken);
+                
+                const response = await fetch(verifyUrl, {
+                    method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ token }),
                 });
 
+                console.log('📧 [EmailVerificationPage] Backend response status:', response.status);
+                console.log('📧 [EmailVerificationPage] Backend response headers:', Object.fromEntries(response.headers.entries()));
+
+                // Handle error responses
                 if (!response.ok) {
-                    let errorData;
-                    try {
-                        errorData = await response.json();
-                    } catch (e) {
-                        errorData = { message: `HTTP ${response.status}` };
-                    }
+                    const responseText = await response.text();
+                    console.error('❌ [EmailVerificationPage] Backend returned error');
+                    console.error('❌ [EmailVerificationPage] Status:', response.status);
+                    console.error('❌ [EmailVerificationPage] Response body:', responseText);
                     
-                    const errorMessage = errorData.message || errorData.error || 'Verification failed';
-                    console.error('❌ [EmailVerificationPage] Verification error:', errorData);
+                    let errorMessage = 'Email verification failed';
+                    
+                    try {
+                        const errorData = JSON.parse(responseText);
+                        errorMessage = errorData.message || errorData.error || errorMessage;
+                        console.error('❌ [EmailVerificationPage] Parsed error data:', errorData);
+                    } catch (e) {
+                        // Response is not JSON
+                        errorMessage = responseText.substring(0, 200) || `Server error (${response.status})`;
+                        console.error('❌ [EmailVerificationPage] Response is not valid JSON');
+                    }
                     
                     setStatus('error');
                     setMessage(errorMessage);
                     return;
                 }
 
-                const result = await response.json();
-                console.log('✅ [EmailVerificationPage] Email verified successfully:', result);
+                // Parse successful response
+                // Backend returns: {"message": "Email verified successfully."}
+                const responseText = await response.text();
+                console.log('✅ [EmailVerificationPage] Backend response body:', responseText);
                 
-                setStatus('success');
-                setMessage('Your email has been verified successfully!');
-                
-                // Redirect to login after 3 seconds
-                setTimeout(() => {
-                    onNavigate('login');
-                }, 3000);
+                let responseData;
+                try {
+                    responseData = JSON.parse(responseText);
+                    console.log('✅ [EmailVerificationPage] Parsed response:', responseData);
+                } catch (e) {
+                    console.warn('⚠️ [EmailVerificationPage] Backend returned non-JSON response');
+                    responseData = null;
+                }
+
+                // Check if backend included auth tokens (future feature)
+                if (responseData && responseData.accessToken && responseData.refreshToken) {
+                    console.log('🔐 [EmailVerificationPage] Backend included auth tokens, logging user in');
+                    
+                    // Validate tokens before storing
+                    if (responseData.accessToken && responseData.accessToken !== 'undefined' && responseData.accessToken !== 'null' &&
+                        responseData.refreshToken && responseData.refreshToken !== 'undefined' && responseData.refreshToken !== 'null') {
+                        
+                        localStorage.setItem('accessToken', responseData.accessToken);
+                        localStorage.setItem('refreshToken', responseData.refreshToken);
+                        
+                        if (responseData.user) {
+                            localStorage.setItem('user', JSON.stringify(responseData.user));
+                        }
+                        
+                        const { useAuthStore } = await import('../stores/useAuthStore');
+                        const authStore = useAuthStore.getState();
+                        authStore.setAuthenticated(true, responseData.user, responseData.accessToken);
+                        
+                        setStatus('success');
+                        setMessage('Your email has been verified successfully! Redirecting to dashboard...');
+                        
+                        if (onLoginSuccess) {
+                            onLoginSuccess();
+                        }
+                        
+                        setTimeout(() => {
+                            onNavigate('universal_dashboard');
+                        }, 2000);
+                    } else {
+                        console.warn('⚠️ [EmailVerificationPage] Backend returned invalid tokens, proceeding with normal flow');
+                        setStatus('success');
+                        setMessage('Your email has been verified successfully! Please log in to continue.');
+                        
+                        setTimeout(() => {
+                            onNavigate('login');
+                        }, 3000);
+                    }
+                } else {
+                    // Normal flow: Email verified, user must log in separately
+                    console.log('✅ [EmailVerificationPage] Email verified! Redirecting to login...');
+                    
+                    setStatus('success');
+                    setMessage(responseData?.message || 'Your email has been verified successfully! Please log in to continue.');
+                    
+                    setTimeout(() => {
+                        onNavigate('login');
+                    }, 3000);
+                }
             } catch (error) {
-                console.error('❌ [EmailVerificationPage] Error:', error);
+                console.error('❌ [EmailVerificationPage] Unexpected error during verification');
+                console.error('❌ [EmailVerificationPage] Error type:', error?.constructor?.name);
+                console.error('❌ [EmailVerificationPage] Error message:', error instanceof Error ? error.message : String(error));
+                console.error('❌ [EmailVerificationPage] Error stack:', error instanceof Error ? error.stack : 'N/A');
+                
                 setStatus('error');
-                setMessage(error instanceof Error ? error.message : 'An error occurred during verification');
+                setMessage(error instanceof Error ? error.message : 'An unexpected error occurred during verification. Please try again.');
             }
         };
 
         verifyEmail();
-    }, [onNavigate]);
+    }, [onNavigate, onLoginSuccess]);
 
     return (
         <AuthLayout title="Email Verification" onNavigate={onNavigate}>

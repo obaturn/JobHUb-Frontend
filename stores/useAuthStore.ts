@@ -31,6 +31,7 @@ interface AuthState {
   initialize: () => Promise<void>;
   clearMFAState: () => void;
   setToken: (token: string) => void;
+  setAuthenticated: (isAuthenticated: boolean, user: User | null, token: string) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -160,7 +161,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   refreshToken: async () => {
     try {
       const refreshToken = localStorage.getItem('refreshToken');
-      if (!refreshToken) {
+      
+      // Check if refresh token is valid
+      if (!refreshToken || refreshToken === 'undefined' || refreshToken === 'null' || refreshToken.trim() === '') {
+        console.warn('No valid refresh token available');
         throw new Error('No refresh token available');
       }
 
@@ -172,6 +176,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       set({ token: response.accessToken });
     } catch (error) {
+      console.error('Token refresh failed:', error);
       // Refresh failed, clear auth state and redirect to login
       get().logout();
       throw error;
@@ -225,8 +230,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const accessToken = localStorage.getItem('accessToken');
       const userString = localStorage.getItem('user');
 
+      // Helper function to check if a token is valid (not null, undefined, or string "undefined")
+      const isValidToken = (token: string | null): boolean => {
+        return token !== null && token !== 'undefined' && token !== 'null' && token.trim() !== '';
+      };
+
       // Try to restore session from tokens
-      if (accessToken && userString) {
+      if (isValidToken(accessToken) && userString && userString !== 'undefined' && userString !== 'null') {
         try {
           const user = JSON.parse(userString);
           set({
@@ -237,23 +247,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           return; // Session restored from localStorage
         } catch (error) {
           console.warn('Failed to parse stored user:', error);
+          // Clear invalid data
+          localStorage.removeItem('user');
         }
       }
 
       // If access token expired but refresh token exists, try to refresh
-      if (refreshToken && !accessToken) {
+      if (isValidToken(refreshToken) && !isValidToken(accessToken)) {
         try {
           await get().refreshToken();
           return; // Session restored via refresh
         } catch (error) {
           console.warn('Failed to refresh token on initialization:', error);
+          // Clear invalid tokens
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('user');
         }
       }
 
-      // If we have both tokens, try to refresh to get current user data
-      if (refreshToken && accessToken) {
+      // If we have both valid tokens, try to refresh to get current user data
+      if (isValidToken(refreshToken) && isValidToken(accessToken)) {
         try {
-          const response = await authApi.refreshToken(refreshToken);
+          const response = await authApi.refreshToken(refreshToken!);
           localStorage.setItem('accessToken', response.accessToken);
           localStorage.setItem('refreshToken', response.refreshToken);
 
@@ -269,10 +285,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           return;
         } catch (error) {
           console.warn('Failed to refresh session:', error);
+          // Clear invalid tokens
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('user');
         }
       }
 
-      // No valid session
+      // No valid session - clear any invalid data
+      if (!isValidToken(refreshToken) || !isValidToken(accessToken)) {
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('user');
+      }
+
       set({
         user: null,
         token: null,
@@ -280,6 +306,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
     } catch (error) {
       console.error('Error during auth initialization:', error);
+      // Clear all tokens on error
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('user');
       set({
         user: null,
         token: null,
@@ -287,4 +317,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
     }
   },
-}));
+  setAuthenticated: (isAuthenticated, user, token) => {
+    console.log('🔐 [AuthStore] Setting authenticated state:', { isAuthenticated, userId: user?.id });
+    if (isAuthenticated && token && user) {
+      localStorage.setItem('accessToken', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      set({
+        user,
+        token,
+        isAuthenticated: true,
+        error: null,
+      });
+    } else {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      set({
+        user: null,
+        token: null,
+        isAuthenticated: false,
+      });
+    }
+  },}));

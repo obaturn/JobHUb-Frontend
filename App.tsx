@@ -13,12 +13,18 @@ import CtaSection from './components/CtaSection';
 import Footer from './components/Footer';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
+import EmailVerificationPage from './pages/EmailVerificationPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import JobSearchPage from './pages/JobSearchPage';
 import JobDetailsPage from './pages/JobDetailsPage';
+import AboutPage from './pages/AboutPage';
 import { lazy, Suspense } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
+import LazySection from './src/components/LazySection';
+import InsightsSection from './src/components/InsightsSection';
+import { debugTokens, clearAllTokens, isValidToken } from './src/utils/tokenDebug';
+import analytics from './src/utils/analytics';
 
 // Lazy load heavy components for better performance
 const JobSeekerDashboardPage = lazy(() => import('./pages/JobSeekerDashboardPage'));
@@ -35,6 +41,8 @@ import { MOCK_USER, INITIAL_APPLICATIONS, INITIAL_SAVED_JOBS, MOCK_EMPLOYER, MOC
 import WhyChooseUs from './components/WhyChooseUs';
 import HowItWorks from './components/HowItWorks';
 import VideoHighlights from './components/VideoHighlights';
+import Roadmap from './components/Roadmap';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
 
 const App: React.FC = () => {
   // Auth store
@@ -70,6 +78,37 @@ const App: React.FC = () => {
 
   const navigate = (page: Page) => {
     setCurrentPage(page);
+    
+    // Track page navigation
+    analytics.trackPageView(page);
+    
+    // Update browser URL to match the page
+    const urlMap: Record<Page, string> = {
+      'landing': '/',
+      'login': '/login',
+      'signup': '/signup',
+      'email_verification': '/verify-email',
+      'forgot_password': '/forgot-password',
+      'job_search': '/job-search',
+      'job_details': '/job-details',
+      'company_profile': '/company-profile',
+      'messaging': '/messaging',
+      'universal_dashboard': '/dashboard',
+      'job_seeker_dashboard': '/dashboard/job-seeker',
+      'employer_dashboard': '/dashboard/employer',
+      'admin_dashboard': '/dashboard/admin',
+      'create_job': '/create-job',
+      'about': '/about'
+    };
+    
+    const newUrl = urlMap[page] || '/';
+    
+    // Update URL without triggering a page reload
+    if (window.location.pathname !== newUrl) {
+      window.history.pushState({}, '', newUrl);
+      console.log('🔗 [App] Updated URL to:', newUrl);
+    }
+    
     window.scrollTo(0, 0);
   };
 
@@ -84,6 +123,25 @@ const App: React.FC = () => {
   useEffect(() => {
     const initAuth = async () => {
       try {
+        // Debug tokens in development
+        if (process.env.NODE_ENV === 'development') {
+          debugTokens();
+        }
+        
+        // Clear any invalid tokens first
+        const refreshToken = localStorage.getItem('refreshToken');
+        const accessToken = localStorage.getItem('accessToken');
+        
+        // Clear invalid tokens
+        if (!isValidToken(refreshToken)) {
+          console.warn('🧹 [App] Clearing invalid refresh token:', refreshToken);
+          localStorage.removeItem('refreshToken');
+        }
+        if (!isValidToken(accessToken)) {
+          console.warn('🧹 [App] Clearing invalid access token:', accessToken);
+          localStorage.removeItem('accessToken');
+        }
+        
         await initialize();
       } catch (error) {
         console.error('Failed to initialize auth:', error);
@@ -92,6 +150,75 @@ const App: React.FC = () => {
 
     initAuth();
   }, [initialize]);
+
+  // Check URL for routing on page load/refresh
+  useEffect(() => {
+    const path = window.location.pathname;
+    const searchParams = new URLSearchParams(window.location.search);
+    
+    console.log('🔗 [App] Checking URL for routing:', { path, search: window.location.search });
+    
+    // Route based on URL path
+    if (path === '/verify-email' && searchParams.has('token')) {
+      console.log('🔐 [App] Detected email verification link, navigating to email_verification page');
+      setCurrentPage('email_verification');
+    } else if (path === '/login') {
+      console.log('🔐 [App] Detected login page, navigating to login');
+      setCurrentPage('login');
+    } else if (path === '/signup') {
+      console.log('🔐 [App] Detected signup page, navigating to signup');
+      setCurrentPage('signup');
+    } else if (path === '/forgot-password') {
+      console.log('🔐 [App] Detected forgot password page, navigating to forgot_password');
+      setCurrentPage('forgot_password');
+    } else if (path === '/job-search') {
+      console.log('🔐 [App] Detected job search page, navigating to job_search');
+      setCurrentPage('job_search');
+    } else if (path === '/about') {
+      console.log('🔐 [App] Detected about page, navigating to about');
+      setCurrentPage('about');
+    } else {
+      console.log('🔐 [App] Default route, staying on landing page');
+      setCurrentPage('landing');
+    }
+    
+    window.scrollTo(0, 0);
+  }, []);
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      const path = window.location.pathname;
+      const searchParams = new URLSearchParams(window.location.search);
+      
+      console.log('🔙 [App] Browser navigation detected:', { path, search: window.location.search });
+      
+      // Route based on URL path
+      if (path === '/verify-email' && searchParams.has('token')) {
+        setCurrentPage('email_verification');
+      } else if (path === '/login') {
+        setCurrentPage('login');
+      } else if (path === '/signup') {
+        setCurrentPage('signup');
+      } else if (path === '/forgot-password') {
+        setCurrentPage('forgot_password');
+      } else if (path === '/job-search') {
+        setCurrentPage('job_search');
+      } else if (path === '/about') {
+        setCurrentPage('about');
+      } else {
+        setCurrentPage('landing');
+      }
+      
+      window.scrollTo(0, 0);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
 
   const handleLogin = () => {
     console.log('Login success callback triggered');
@@ -104,6 +231,10 @@ const App: React.FC = () => {
       setIsAuthenticated(true);
       setUser(currentUser);
       setUserType(currentUser.userType);
+
+      // Track login event
+      analytics.setUserId(currentUser.id);
+      analytics.trackLogin('email');
 
       // Navigate based on user type
       if (currentUser.userType === 'new_user') {
@@ -142,6 +273,10 @@ const App: React.FC = () => {
   const handleAdminLogin = handleLogin;
 
   const handleLogout = async () => {
+    // Track logout event
+    analytics.trackLogout();
+    analytics.clearUserId();
+    
     // Call store logout
     await useAuthStore.getState().logout();
     
@@ -348,6 +483,8 @@ const App: React.FC = () => {
         return <LoginPage onNavigate={navigate} onLoginSuccess={handleLogin} onEmployerLogin={handleEmployerLogin} onAdminLogin={handleAdminLogin} />;
       case 'signup':
         return <SignupPage onNavigate={navigate} onLoginSuccess={handleSignupSuccess} />;
+      case 'email_verification':
+        return <EmailVerificationPage onNavigate={navigate} />;
       case 'forgot_password':
         return <ForgotPasswordPage onNavigate={navigate} />;
       case 'job_search':
@@ -450,20 +587,70 @@ const App: React.FC = () => {
                 user={user}
             />
         ) : <LoginPage onNavigate={navigate} onLoginSuccess={handleLogin} onEmployerLogin={handleEmployerLogin} onAdminLogin={handleAdminLogin} />;
+      case 'about':
+        return <AboutPage onNavigate={navigate} />;
       case 'landing':
       default:
         return (
           <>
-            <Hero onNavigate={navigate} />
-            <RotatingCarousel onNavigate={navigate} />
-            <FeaturedJobs onViewJobDetails={handleViewJobDetails} onViewCompanyProfile={handleViewCompanyProfile} onNavigate={navigate}/>
-            <WhyChooseUs />
-            <Stats />
-            <HowItWorks />
-            <JobCategories />
-            <VideoHighlights />
-            <Testimonials />
-            <CtaSection />
+            <div id="hero">
+              <Hero onNavigate={navigate} />
+            </div>
+            <LazySection>
+              <div id="companies">
+                <RotatingCarousel onNavigate={navigate} />
+              </div>
+            </LazySection>
+            <LazySection>
+              <div id="jobs">
+                <FeaturedJobs onViewJobDetails={handleViewJobDetails} onViewCompanyProfile={handleViewCompanyProfile} onNavigate={navigate}/>
+              </div>
+            </LazySection>
+            <LazySection>
+              <div id="features">
+                <WhyChooseUs />
+              </div>
+            </LazySection>
+            <LazySection>
+              <div id="stats">
+                <Stats />
+              </div>
+            </LazySection>
+            <LazySection>
+              <div id="insights">
+                <InsightsSection />
+              </div>
+            </LazySection>
+            <LazySection>
+              <div id="how-it-works">
+                <HowItWorks />
+              </div>
+            </LazySection>
+            <LazySection>
+              <div id="categories">
+                <JobCategories />
+              </div>
+            </LazySection>
+            <LazySection>
+              <div id="roadmap">
+                <Roadmap />
+              </div>
+            </LazySection>
+            <LazySection>
+              <div id="videos">
+                <VideoHighlights />
+              </div>
+            </LazySection>
+            <LazySection>
+              <div id="testimonials">
+                <Testimonials />
+              </div>
+            </LazySection>
+            <LazySection>
+              <div id="cta">
+                <CtaSection />
+              </div>
+            </LazySection>
           </>
         );
     }
@@ -482,22 +669,33 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <div className={`bg-white dark:bg-neutral-dark text-neutral-dark dark:text-white flex flex-col min-h-screen ${currentPage !== 'landing' ? 'bg-neutral-light dark:bg-neutral-dark' : ''}`}>
-        <Header
-          onNavigate={navigate}
-          isAuthenticated={isAuthenticated}
-          onLogout={handleLogout}
-          user={user}
-          userType={userType}
-          notifications={notifications}
-          onMarkAllRead={handleMarkAllNotificationsRead}
-        />
+        {/* Hide header on auth pages */}
+        {!['login', 'signup', 'email_verification', 'forgot_password'].includes(currentPage) && (
+          <Header
+            onNavigate={navigate}
+            isAuthenticated={isAuthenticated}
+            onLogout={handleLogout}
+            user={user}
+            userType={userType}
+            notifications={notifications}
+            onMarkAllRead={handleMarkAllNotificationsRead}
+          />
+        )}
         <Suspense fallback={<LoadingSpinner message="Loading page..." />}>
-          <main className={`flex-grow ${currentPage !== 'landing' ? 'pt-16' : ''}`}>
+          <main className={`flex-grow ${!['login', 'signup', 'email_verification', 'forgot_password'].includes(currentPage) && currentPage !== 'landing' ? 'pt-16' : ''}`}>
             {renderPage()}
           </main>
         </Suspense>
-        <Footer onNavigate={navigate} />
+        {/* Hide footer on auth pages */}
+        {!['login', 'signup', 'email_verification', 'forgot_password'].includes(currentPage) && (
+          <Footer onNavigate={navigate} />
+        )}
         <ChatBot />
+        
+        {/* Analytics Dashboard - only in development or for admins */}
+        {(process.env.NODE_ENV === 'development' || (user && user.userType === 'admin')) && (
+          <AnalyticsDashboard />
+        )}
       </div>
     </ErrorBoundary>
   );

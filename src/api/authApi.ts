@@ -51,6 +51,13 @@ export interface RefreshTokenResponse {
  * Login user with email and password
  */
 export async function login(credentials: LoginRequest): Promise<LoginResponse> {
+  console.log('📡 [AuthAPI] Sending login request:', {
+    email: credentials.email,
+    passwordLength: credentials.password.length,
+    passwordBytes: new TextEncoder().encode(credentials.password).length,
+    deviceId: credentials.deviceId
+  });
+  
   return httpPost<LoginResponse>('/api/v1/auth/login', credentials);
 }
 
@@ -159,12 +166,78 @@ export async function getCurrentUser(): Promise<User> {
 }
 
 /**
- * Verify email with token
+ * Verify email with token from email link
  */
-export async function verifyEmail(token: string): Promise<void> {
-  return httpPost('/api/v1/auth/verify-email', { token });
+export async function verifyEmail(token: string): Promise<{ message: string }> {
+  try {
+    console.log('📧 [AuthAPI] Verifying email with token:', token.substring(0, 20) + '...');
+    
+    const response = await fetch('/api/v1/auth/verify-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ token }),
+    });
+
+    if (!response.ok) {
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        errorData = { message: `Verification failed with status ${response.status}` };
+      }
+      
+      const errorMessage = errorData.message || errorData.error || 'Email verification failed';
+      console.error('🔴 [AuthAPI] Verification error:', errorData);
+      throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    console.log('✅ [AuthAPI] Email verified successfully');
+    return result;
+  } catch (error) {
+    console.error('❌ [AuthAPI] Verification error:', error);
+    throw error;
+  }
 }
 
+/**
+ * Resend verification email to user
+ */
+export async function resendVerificationEmail(email: string): Promise<{ message: string }> {
+  try {
+    console.log('📧 [AuthAPI] Requesting resend verification for:', email);
+    
+    const response = await fetch('/api/v1/auth/resend-verification', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        errorData = { message: `Request failed with status ${response.status}` };
+      }
+      
+      const errorMessage = errorData.message || errorData.error || 'Failed to resend verification email';
+      console.error('🔴 [AuthAPI] Resend error:', errorData);
+      throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    console.log('✅ [AuthAPI] Verification email resent successfully');
+    return result;
+  } catch (error) {
+    console.error('❌ [AuthAPI] Resend error:', error);
+    throw error;
+  }
+}
 /**
  * Skip email verification (development only)
  */
@@ -210,7 +283,7 @@ export async function logout(): Promise<void> {
 export async function refreshToken(
   refreshTokenValue: string
 ): Promise<RefreshTokenResponse> {
-  return httpPost<RefreshTokenResponse>('/api/v1/auth/refresh-token', {
+  return httpPost<RefreshTokenResponse>('/api/v1/auth/refresh', {
     refreshToken: refreshTokenValue,
   });
 }

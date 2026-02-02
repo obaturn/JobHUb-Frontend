@@ -3,7 +3,7 @@
 echo "Testing Registration Endpoint..."
 echo "================================="
 
-RESPONSE=$(curl -s -X POST http://localhost:8080/api/v1/auth/register \
+RESPONSE=$(curl -s -X POST http://localhost:8081/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "test_'"$(date +%s)"'@example.com",
