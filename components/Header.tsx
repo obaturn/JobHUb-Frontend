@@ -4,6 +4,7 @@ import { BriefcaseIcon, EnvelopeIcon } from '../constants';
 import { User, Notification, Page } from '../types';
 import { BellIcon } from './icons/BellIcon';
 import NotificationPanel from './notifications/NotificationPanel';
+import SmartNotificationSystem from './workflow/SmartNotificationSystem';
 
 interface HeaderProps {
     onNavigate: (page: Page) => void;
@@ -55,7 +56,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, isAuthenticated, onLogout, 
   const navLinks = [
       { name: 'Home', page: 'landing' as Page },
       { name: 'Find Jobs', page: 'job_search' as Page },
-      { name: 'Companies', page: 'job_search' as Page },
+      { name: 'Companies', page: 'companies_directory' as Page },
       { name: 'About', page: 'about' as Page },
   ];
 
@@ -100,13 +101,29 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, isAuthenticated, onLogout, 
                 <button onClick={() => onNavigate('messaging')} className="relative text-gray-500 hover:text-primary transition-colors">
                   <EnvelopeIcon className="w-6 h-6" />
                 </button>
-                <div className="relative">
-                    <button onClick={handleNotificationsToggle} className="relative text-gray-500 hover:text-primary transition-colors">
-                      <BellIcon className="w-6 h-6" />
-                      {unreadCount > 0 && <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />}
-                    </button>
-                    {isNotificationsOpen && <NotificationPanel notifications={notifications} onMarkAllRead={onMarkAllRead} onClose={() => setIsNotificationsOpen(false)} />}
-                </div>
+                
+                {/* Smart Notification System */}
+                <SmartNotificationSystem
+                  user={user}
+                  onViewJobDetails={(job) => {
+                    // Store job and navigate to job details
+                    localStorage.setItem('selectedJob', JSON.stringify(job));
+                    onNavigate('job_details');
+                  }}
+                  onViewCompanyProfile={(companyId) => {
+                    // Store company ID and navigate to company profile
+                    localStorage.setItem('selectedCompanyId', companyId);
+                    onNavigate('company_profile');
+                  }}
+                  onApplyJob={(job) => {
+                    // Handle job application
+                    console.log('Apply to job:', job.title);
+                  }}
+                  onFollowCompany={(companyId) => {
+                    // Handle company follow
+                    console.log('Follow company:', companyId);
+                  }}
+                />
 
                 <div className="h-8 w-px bg-gray-200" />
 

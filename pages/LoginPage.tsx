@@ -16,6 +16,29 @@ const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, onLoginSuccess, onEmp
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [showResendVerification, setShowResendVerification] = useState(false);
+    const [lastAttemptedEmail, setLastAttemptedEmail] = useState('');
+    const [resendLoading, setResendLoading] = useState(false);
+    const [resendMessage, setResendMessage] = useState<string | null>(null);
+    
+    const handleResendVerification = async () => {
+        if (!lastAttemptedEmail) return;
+        
+        try {
+            setResendLoading(true);
+            setResendMessage(null);
+            
+            const { resendVerificationEmail } = await import('../src/api/authApi');
+            await resendVerificationEmail(lastAttemptedEmail);
+            
+            setResendMessage('✅ Verification email sent! Please check your inbox and spam folder.');
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to resend verification email';
+            setResendMessage(`❌ ${message}`);
+        } finally {
+            setResendLoading(false);
+        }
+    };
     
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -45,12 +68,24 @@ const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, onLoginSuccess, onEmp
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Login failed';
             
-            // Check if it's an email verification error
-            if (errorMessage.includes('Email not verified')) {
-                console.warn('📧 [LoginPage] Email verification required');
+            console.error('❌ [LoginPage] Login error:', errorMessage);
+            
+            // Store email for potential resend verification
+            setLastAttemptedEmail(email);
+            
+            // Check for specific error types
+            if (errorMessage.includes('Email not verified') || errorMessage.includes('verification')) {
                 setError('❌ Email not verified. Please check your email for the verification link and click it to activate your account.');
+                setShowResendVerification(true);
+            } else if (errorMessage.includes('Invalid email or password')) {
+                setError('❌ Invalid email or password. Please check your credentials and try again.');
+                setShowResendVerification(false);
+            } else if (errorMessage.includes('Account locked')) {
+                setError('❌ Account temporarily locked due to multiple failed login attempts. Please try again later.');
+                setShowResendVerification(false);
             } else {
-                setError(errorMessage || 'Login failed. Please check your credentials.');
+                setError(`❌ ${errorMessage}`);
+                setShowResendVerification(false);
             }
         } finally {
             setLoading(false);
@@ -134,9 +169,32 @@ const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, onLoginSuccess, onEmp
                             <div className="flex-1">
                                 <h3 className="text-sm font-bold text-red-900 mb-1">Login Failed</h3>
                                 <p className="text-sm text-red-800">{error}</p>
+                                
+                                {/* Resend Verification Section */}
+                                {showResendVerification && (
+                                    <div className="mt-3 pt-3 border-t border-red-200">
+                                        <p className="text-sm text-red-700 mb-2">
+                                            Didn't receive the verification email?
+                                        </p>
+                                        <button
+                                            onClick={handleResendVerification}
+                                            disabled={resendLoading}
+                                            className="text-sm font-medium text-red-800 hover:text-red-900 underline disabled:opacity-50"
+                                        >
+                                            {resendLoading ? 'Sending...' : 'Resend verification email'}
+                                        </button>
+                                        {resendMessage && (
+                                            <p className="text-sm mt-2 text-red-700">{resendMessage}</p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                             <button
-                                onClick={() => setError(null)}
+                                onClick={() => {
+                                    setError(null);
+                                    setShowResendVerification(false);
+                                    setResendMessage(null);
+                                }}
                                 className="flex-shrink-0 text-red-600 hover:text-red-900 transition-colors"
                             >
                                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">

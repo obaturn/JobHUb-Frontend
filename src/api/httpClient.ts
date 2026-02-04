@@ -3,6 +3,8 @@
  * Handles 401 errors by automatically refreshing tokens and retrying requests
  */
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081/api/v1';
+
 interface RequestConfig extends RequestInit {
   url: string;
 }
@@ -67,7 +69,7 @@ async function refreshAccessToken(): Promise<RefreshTokenResponse> {
 
   console.log('🔄 [httpClient] Attempting token refresh...');
 
-  const response = await fetch('/api/v1/auth/refresh', {
+  const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -97,6 +99,11 @@ export async function httpClient(
 ): Promise<Response> {
   const accessToken = getAccessToken();
 
+  // Convert relative URLs to absolute URLs
+  const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
+  
+  console.log('🌐 [httpClient] Making request to:', fullUrl);
+
   // Add authorization header if token exists
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
@@ -107,10 +114,12 @@ export async function httpClient(
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
-  let response = await fetch(url, {
+  let response = await fetch(fullUrl, {
     ...config,
     headers,
   });
+
+  console.log('📡 [httpClient] Response status:', response.status);
 
   // Handle 401 Unauthorized
   if (response.status === 401) {
@@ -134,7 +143,7 @@ export async function httpClient(
         retryHeaders['Authorization'] = `Bearer ${newAccessToken}`;
       }
 
-      response = await fetch(url, {
+      response = await fetch(fullUrl, {
         ...config,
         headers: retryHeaders,
       });
@@ -176,14 +185,59 @@ export async function httpPost<T>(
 
   if (!response.ok) {
     let errorData;
+    let responseText = '';
+    
     try {
-      errorData = await response.json();
+      responseText = await response.text();
+      if (responseText) {
+        errorData = JSON.parse(responseText);
+      } else {
+        errorData = { message: `HTTP ${response.status}` };
+      }
     } catch (e) {
-      errorData = { message: 'Unknown error' };
+      errorData = { 
+        message: responseText || `HTTP ${response.status}`,
+        status: response.status,
+        statusText: response.statusText
+      };
     }
     
-    const errorMessage = errorData.message || errorData.error || `POST ${url} failed with status ${response.status}`;
-    console.error(`🔴 [httpPost] Error ${response.status}:`, errorData);
+    // Handle specific error cases
+    let errorMessage = errorData.message || errorData.error || `POST ${url} failed with status ${response.status}`;
+    
+    // Handle validation errors (400 status)
+    if (response.status === 400 && errorData) {
+      if (typeof errorData === 'object') {
+        // Handle field validation errors
+        const fieldErrors = Object.entries(errorData)
+          .filter(([key, value]) => key !== 'message' && key !== 'error')
+          .map(([field, error]) => `${field}: ${error}`)
+          .join(', ');
+        
+        if (fieldErrors) {
+          errorMessage = fieldErrors;
+        }
+      }
+    }
+    
+    // Handle authentication errors (403 status)
+    if (response.status === 403) {
+      if (url.includes('/login')) {
+        errorMessage = 'Email not verified. Please check your email for the verification link and click it to activate your account.';
+      } else {
+        errorMessage = 'Access denied. Please check your credentials.';
+      }
+    }
+    
+    console.error(`🔴 [httpPost] Error ${response.status}:`, {
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      responseText,
+      errorData,
+      finalMessage: errorMessage
+    });
+    
     throw new Error(errorMessage);
   }
 

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JobHub Authentication Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; width: 200px; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔐 JobHub Authentication Test</h1>
+    
+    <div class="section info">
+        <h3>Backend Status</h3>
+        <p>Testing connection to: <code>http://localhost:8081/api/v1</code></p>
+        <button onclick="testBackendConnection()">Test Backend Connection</button>
+        <div id="backend-status"></div>
+    </div>
+
+    <div class="section">
+        <h3>🔑 Test Login</h3>
+        <p>Use the test account: <strong>test@test.com</strong> / <strong>Password123!</strong></p>
+        <div>
+            <input type="email" id="login-email" placeholder="Email" value="test@test.com">
+            <input type="password" id="login-password" placeholder="Password" value="Password123!">
+            <button onclick="testLogin()">Login</button>
+        </div>
+        <div id="login-result"></div>
+    </div>
+
+    <div class="section">
+        <h3>📝 Test Registration</h3>
+        <div>
+            <input type="text" id="reg-firstName" placeholder="First Name" value="Test">
+            <input type="text" id="reg-lastName" placeholder="Last Name" value="User">
+            <input type="email" id="reg-email" placeholder="Email" value="newuser@test.com">
+            <input type="password" id="reg-password" placeholder="Password" value="Password123!">
+            <button onclick="testRegistration()">Register</button>
+        </div>
+        <div id="registration-result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8081/api/v1';
+
+        async function testBackendConnection() {
+            const statusDiv = document.getElementById('backend-status');
+            statusDiv.innerHTML = '<p>Testing connection...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': 'http://localhost:3001',
+                        'Access-Control-Request-Method': 'POST',
+                        'Access-Control-Request-Headers': 'Content-Type'
+                    }
+                });
+                
+                if (response.ok) {
+                    statusDiv.innerHTML = '<div class="success"><p>✅ Backend is running and CORS is configured correctly!</p></div>';
+                } else {
+                    statusDiv.innerHTML = `<div class="error"><p>❌ Backend responded with status: ${response.status}</p><p><strong>Note:</strong> You need to add "http://localhost:3001" to your Spring Security CORS configuration.</p></div>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="error"><p>❌ Cannot connect to backend: ${error.message}</p></div>`;
+            }
+        }
+
+        async function testLogin() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const resultDiv = document.getElementById('login-result');
+            
+            resultDiv.innerHTML = '<p>Logging in...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Origin': 'http://localhost:3001'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.text();
+                
+                if (response.ok) {
+                    const authData = JSON.parse(data);
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <p>✅ Login successful!</p>
+                            <p><strong>User:</strong> ${authData.user.firstName} ${authData.user.lastName}</p>
+                            <p><strong>Email:</strong> ${authData.user.email}</p>
+                            <p><strong>Type:</strong> ${authData.user.userType}</p>
+                            <p><strong>Status:</strong> ${authData.user.status}</p>
+                            <p><strong>Email Verified:</strong> ${authData.user.emailVerified}</p>
+                            <details>
+                                <summary>View Token</summary>
+                                <pre>${authData.accessToken.substring(0, 100)}...</pre>
+                            </details>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <p>❌ Login failed (${response.status})</p>
+                            <pre>${data}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error"><p>❌ Error: ${error.message}</p></div>`;
+            }
+        }
+
+        async function testRegistration() {
+            const firstName = document.getElementById('reg-firstName').value;
+            const lastName = document.getElementById('reg-lastName').value;
+            const email = document.getElementById('reg-email').value;
+            const passwordHash = document.getElementById('reg-password').value;
+            const resultDiv = document.getElementById('registration-result');
+            
+            resultDiv.innerHTML = '<p>Registering...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Origin': 'http://localhost:3001'
+                    },
+                    body: JSON.stringify({ 
+                        firstName, 
+                        lastName, 
+                        email, 
+                        passwordHash,
+                        userType: 'job_seeker'
+                    })
+                });
+                
+                const data = await response.text();
+                
+                if (response.ok) {
+                    const userData = JSON.parse(data);
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <p>✅ Registration successful!</p>
+                            <p><strong>User ID:</strong> ${userData.id}</p>
+                            <p><strong>Email:</strong> ${userData.email}</p>
+                            <p><strong>Status:</strong> ${userData.status}</p>
+                            <p><strong>Email Verified:</strong> ${userData.emailVerified}</p>
+                            ${!userData.emailVerified ? '<p><strong>⚠️ Email verification required before login</strong></p>' : ''}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <p>❌ Registration failed (${response.status})</p>
+                            <pre>${data}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error"><p>❌ Error: ${error.message}</p></div>`;
+            }
+        }
+
+        // Test backend connection on page load
+        window.onload = () => {
+            testBackendConnection();
+        };
+    </script>
+</body>
+</html>

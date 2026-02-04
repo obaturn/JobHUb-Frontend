@@ -15,6 +15,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [userType, setUserType] = useState<'job_seeker' | 'employer'>('job_seeker');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -84,7 +85,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
         const email = (formData.get('email') as string).trim();
         const newErrors: Record<string, string> = {};
 
-        console.log('📋 Form data:', { firstName, lastName, email, passwordLength: password.length });
+        console.log('📋 Form data:', { firstName, lastName, email, passwordLength: password.length, userType });
 
         // Validate first name
         if (!firstName) {
@@ -129,7 +130,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
             setRetryAttempt(0);
             console.log('🔄 Starting signup process...');
             
-            console.log('👤 Signup data:', { firstName, lastName, email });
+            console.log('👤 Signup data:', { firstName, lastName, email, userType });
 
             // Import and use the auth store
             const { useAuthStore } = await import('../stores/useAuthStore');
@@ -141,7 +142,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
                 lastName,
                 email,
                 password,
-                userType: 'job_seeker'
+                userType: userType  // Now uses the selected user type!
             });
             
             console.log('✅ Signup successful!');
@@ -321,7 +322,12 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
             {/* Welcome Message */}
             <div className="mb-8 text-center">
                 <h2 className="text-2xl font-bold text-neutral-dark mb-2">Create your account</h2>
-                <p className="text-gray-600">Join millions of professionals building their careers</p>
+                <p className="text-gray-600">
+                    {userType === 'job_seeker' 
+                        ? 'Join millions of professionals building their careers' 
+                        : 'Connect with top talent and grow your team'
+                    }
+                </p>
             </div>
 
             {/* Error Alert */}
@@ -430,6 +436,70 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
                     )}
                 </div>
 
+                {/* User Type Selection */}
+                <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-gray-700">
+                        I want to
+                    </label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setUserType('job_seeker')}
+                            className={`p-4 border-2 rounded-xl transition-all duration-200 text-left ${
+                                userType === 'job_seeker'
+                                    ? 'border-primary bg-primary/5 shadow-md'
+                                    : 'border-gray-200 hover:border-gray-300 bg-gray-50'
+                            }`}
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                                    userType === 'job_seeker' ? 'bg-primary text-white' : 'bg-gray-200 text-gray-600'
+                                }`}>
+                                    🎯
+                                </div>
+                                <div>
+                                    <h3 className={`font-semibold ${
+                                        userType === 'job_seeker' ? 'text-primary' : 'text-gray-900'
+                                    }`}>
+                                        Find a Job
+                                    </h3>
+                                    <p className="text-sm text-gray-600">
+                                        I'm looking for job opportunities
+                                    </p>
+                                </div>
+                            </div>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setUserType('employer')}
+                            className={`p-4 border-2 rounded-xl transition-all duration-200 text-left ${
+                                userType === 'employer'
+                                    ? 'border-primary bg-primary/5 shadow-md'
+                                    : 'border-gray-200 hover:border-gray-300 bg-gray-50'
+                            }`}
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                                    userType === 'employer' ? 'bg-primary text-white' : 'bg-gray-200 text-gray-600'
+                                }`}>
+                                    🏢
+                                </div>
+                                <div>
+                                    <h3 className={`font-semibold ${
+                                        userType === 'employer' ? 'text-primary' : 'text-gray-900'
+                                    }`}>
+                                        Hire Talent
+                                    </h3>
+                                    <p className="text-sm text-gray-600">
+                                        I want to post jobs and find candidates
+                                    </p>
+                                </div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <label htmlFor="password" className="block text-sm font-semibold text-gray-700">
@@ -465,6 +535,11 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
                         </div>
                         {fieldErrors.password && (
                             <p className="text-sm text-error-600 font-medium">{fieldErrors.password}</p>
+                        )}
+                        {!fieldErrors.password && (
+                            <p className="text-xs text-gray-500">
+                                Must contain: 8+ characters, uppercase, lowercase, number, special character
+                            </p>
                         )}
                     </div>
 

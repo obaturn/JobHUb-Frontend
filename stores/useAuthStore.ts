@@ -74,13 +74,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         password: credentials.password,
       });
 
+      // Ensure the user object has a proper name field (in case backend doesn't provide it)
+      const user = {
+        ...response.user,
+        name: response.user.name || response.user.email?.split('@')[0] || 'User'
+      };
+
+      console.log('🔧 [AuthStore] Enhanced user object from login:', user);
+
       // Store tokens
       localStorage.setItem('accessToken', response.accessToken);
       localStorage.setItem('refreshToken', response.refreshToken);
-      localStorage.setItem('user', JSON.stringify(response.user));
+      localStorage.setItem('user', JSON.stringify(user));
 
       set({
-        user: response.user,
+        user: user,
         token: response.accessToken,
         isAuthenticated: true,
         loading: false,
@@ -137,13 +145,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       console.log('✅ [AuthStore] Signup response received:', response);
 
+      // Ensure the user object has a proper name field
+      const user = {
+        ...response.user,
+        name: response.user.name || `${userData.firstName} ${userData.lastName}`.trim()
+      };
+
+      console.log('🔧 [AuthStore] Enhanced user object:', user);
+
       // Store tokens
       localStorage.setItem('accessToken', response.accessToken);
       localStorage.setItem('refreshToken', response.refreshToken);
-      localStorage.setItem('user', JSON.stringify(response.user));
+      localStorage.setItem('user', JSON.stringify(user));
 
       set({
-        user: response.user,
+        user: user,
         token: response.accessToken,
         isAuthenticated: true,
         loading: false,
@@ -239,8 +255,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (isValidToken(accessToken) && userString && userString !== 'undefined' && userString !== 'null') {
         try {
           const user = JSON.parse(userString);
+          
+          // Ensure the user object has a proper name field
+          const enhancedUser = {
+            ...user,
+            name: user.name || (user.email ? user.email.split('@')[0] : 'User')
+          };
+          
+          console.log('🔧 [AuthStore] Enhanced user object from localStorage:', enhancedUser);
+          
           set({
-            user,
+            user: enhancedUser,
             token: accessToken,
             isAuthenticated: true,
           });

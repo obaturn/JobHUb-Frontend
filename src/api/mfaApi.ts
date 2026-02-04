@@ -1,6 +1,6 @@
 /**
- * Mock MFA API Utilities
- * All functions are no-ops or local mocks to keep UI functional without backend.
+ * MFA API Utilities - Integrated with Backend
+ * Connects to your Spring Boot backend MFA endpoints
  */
 
 export interface MFASetupResponse {
@@ -27,75 +27,179 @@ export interface MFAVerifyLoginResponse {
   user: any;
 }
 
-const genCodes = () => Array.from({ length: 10 }, () =>
-  `${Math.floor(1000 + Math.random()*9000)}-${Math.floor(1000 + Math.random()*9000)}-${Math.floor(1000 + Math.random()*9000)}`
-);
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081/api/v1';
+
+// Helper function to get auth token
+const getAuthToken = (): string => {
+  const token = localStorage.getItem('accessToken');
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+  return token;
+};
+
+// Helper function to make authenticated requests
+const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) => {
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE_URL}${url}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      ...options.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`API Error: ${response.status} - ${errorText}`);
+  }
+
+  return response;
+};
 
 /**
- * Setup MFA (mock) - returns a placeholder QR and secret
+ * Setup MFA - calls your backend /api/v1/auth/mfa/setup
  */
 export const setupMFA = async (): Promise<MFASetupResponse> => {
-  await new Promise((r) => setTimeout(r, 200));
-  const secret = Math.random().toString(36).slice(2).toUpperCase();
-  return {
-    secret,
-    qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=otpauth://totp/JobHub:${encodeURIComponent('user@example.com')}?secret=${secret}&issuer=JobHub`,
-    backupSecret: secret,
-    setupToken: 'mock-setup-token',
-    instructions: [
-      'Install an authenticator app',
-      'Scan the QR code',
-      'Enter the 6-digit code to verify',
-    ],
-  };
+  try {
+    const response = await makeAuthenticatedRequest('/auth/mfa/setup', {
+      method: 'POST',
+    });
+
+    const data = await response.json();
+    
+    return {
+      secret: data.secret,
+      qrCode: data.qrCode,
+      backupSecret: data.secret,
+      setupToken: 'setup-in-progress',
+      instructions: [
+        'Install an authenticator app (Google Authenticator, Authy, etc.)',
+        'Scan the QR code with your authenticator app',
+        'Enter the 6-digit code from your app to verify setup',
+      ],
+    };
+  } catch (error) {
+    console.error('MFA Setup Error:', error);
+    throw new Error('Failed to setup MFA. Please try again.');
+  }
 };
 
 /**
- * Verify MFA setup (mock)
+ * Verify MFA setup - calls your backend /api/v1/auth/mfa/enable
  */
 export const verifyMFASetup = async (
-  _code: string,
+  code: string,
   _secret: string
 ): Promise<MFAVerifyResponse> => {
-  await new Promise((r) => setTimeout(r, 200));
-  const backupCodes = genCodes();
-  localStorage.setItem('mock_mfa_enabled', 'true');
-  localStorage.setItem('mock_mfa_backup_codes', JSON.stringify(backupCodes));
-  return { mfaEnabled: true, backupCodes, message: 'MFA enabled (mock)' };
+  try {
+    await makeAuthenticatedRequest('/auth/mfa/enable', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+
+    // Generate mock backup codes (in real implementation, backend should provide these)
+    const backupCodes = Array.from({ length: 10 }, () =>
+      `${Math.floor(1000 + Math.random()*9000)}-${Math.floor(1000 + Math.random()*9000)}-${Math.floor(1000 + Math.random()*9000)}`
+    );
+
+    return { 
+      mfaEnabled: true, 
+      backupCodes, 
+      message: 'MFA enabled successfully!' 
+    };
+  } catch (error) {
+    console.error('MFA Verification Error:', error);
+    throw new Error('Failed to verify MFA code. Please check the code and try again.');
+  }
 };
 
 /**
- * Verify TOTP during login (mock)
+ * Verify TOTP during login - calls your backend /api/v1/auth/login/mfa
  */
 export const verifyTOTPForLogin = async (
-  _mfaToken: string,
-  _totpCode: string
+  mfaToken: string,
+  totpCode: string
 ): Promise<MFAVerifyLoginResponse> => {
-  await new Promise((r) => setTimeout(r, 150));
-  const saved = localStorage.getItem('user');
-  const user = saved ? JSON.parse(saved) : { id: 'u1', email: 'alex.doe@example.com' };
-  return { user };
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/login/mfa`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        mfaToken, 
+        code: totpCode 
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Invalid MFA code');
+    }
+
+    const data = await response.json();
+    
+    // Store the tokens
+    if (data.accessToken) {
+      localStorage.setItem('accessToken', data.accessToken);
+    }
+    if (data.refreshToken) {
+      localStorage.setItem('refreshToken', data.refreshToken);
+    }
+
+    return { user: data.user || data };
+  } catch (error) {
+    console.error('MFA Login Verification Error:', error);
+    throw new Error('Invalid MFA code. Please try again.');
+  }
 };
 
 /**
- * Get MFA status (mock) - read from localStorage
+ * Get MFA status - check if user has MFA enabled
  */
 export const getMFAStatus = async (): Promise<MFAStatusResponse> => {
-  await new Promise((r) => setTimeout(r, 150));
-  const enabled = localStorage.getItem('mock_mfa_enabled') === 'true';
-  const codes = JSON.parse(localStorage.getItem('mock_mfa_backup_codes') || '[]');
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  return { mfaEnabled: enabled, userId: user.id || 'u1', backupCodesCount: codes.length };
+  try {
+    const response = await makeAuthenticatedRequest('/auth/profile');
+    const profile = await response.json();
+    
+    // Assuming your UserProfile or User entity has mfaEnabled field
+    return { 
+      mfaEnabled: profile.mfaEnabled || false, 
+      userId: profile.id || profile.userId, 
+      backupCodesCount: 10 // Mock count, adjust based on your backend
+    };
+  } catch (error) {
+    console.error('MFA Status Error:', error);
+    // Return default status if error
+    return { 
+      mfaEnabled: false, 
+      userId: 'unknown', 
+      backupCodesCount: 0 
+    };
+  }
 };
 
 /**
- * Disable MFA (mock)
+ * Disable MFA - you'll need to add this endpoint to your backend
  */
 export const disableMFA = async (
-  _password: string
+  password: string
 ): Promise<{ mfaEnabled: boolean; message: string }> => {
-  await new Promise((r) => setTimeout(r, 150));
-  localStorage.removeItem('mock_mfa_enabled');
-  localStorage.removeItem('mock_mfa_backup_codes');
-  return { mfaEnabled: false, message: 'MFA disabled (mock)' };
+  try {
+    // Note: You'll need to add this endpoint to your backend
+    // For now, this is a placeholder implementation
+    await makeAuthenticatedRequest('/auth/mfa/disable', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    });
+
+    return { 
+      mfaEnabled: false, 
+      message: 'MFA disabled successfully' 
+    };
+  } catch (error) {
+    console.error('MFA Disable Error:', error);
+    throw new Error('Failed to disable MFA. Please check your password and try again.');
+  }
 };

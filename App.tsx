@@ -22,7 +22,7 @@ import { lazy, Suspense } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
 import LazySection from './src/components/LazySection';
-import InsightsSection from './src/components/InsightsSection';
+import MarketInsightsSection from './src/components/InsightsSection';
 import { debugTokens, clearAllTokens, isValidToken } from './src/utils/tokenDebug';
 import analytics from './src/utils/analytics';
 
@@ -31,7 +31,10 @@ const JobSeekerDashboardPage = lazy(() => import('./pages/JobSeekerDashboardPage
 const EmployerDashboardPage = lazy(() => import('./pages/EmployerDashboardPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 const UniversalDashboardPage = lazy(() => import('./pages/UniversalDashboardPage'));
-const CompanyProfilePage = lazy(() => import('./pages/CompanyProfilePage'));
+const CompanyProfilePage = lazy(() => import('./components/company/CompanyProfilePage'));
+const CompaniesDirectoryPage = lazy(() => import('./pages/CompaniesDirectoryPage'));
+const LinkedInStyleDashboard = lazy(() => import('./components/LinkedInStyleDashboard'));
+const TestFeaturesPage = lazy(() => import('./pages/TestFeaturesPage'));
 const MessagingPage = lazy(() => import('./pages/MessagingPage'));
 const CreateJobPage = lazy(() => import('./pages/CreateJobPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
@@ -41,8 +44,6 @@ import { MOCK_USER, INITIAL_APPLICATIONS, INITIAL_SAVED_JOBS, MOCK_EMPLOYER, MOC
 import WhyChooseUs from './components/WhyChooseUs';
 import HowItWorks from './components/HowItWorks';
 import VideoHighlights from './components/VideoHighlights';
-import Roadmap from './components/Roadmap';
-import AnalyticsDashboard from './components/AnalyticsDashboard';
 
 const App: React.FC = () => {
   // Auth store
@@ -90,6 +91,7 @@ const App: React.FC = () => {
       'email_verification': '/verify-email',
       'forgot_password': '/forgot-password',
       'job_search': '/job-search',
+      'companies_directory': '/companies',
       'job_details': '/job-details',
       'company_profile': '/company-profile',
       'messaging': '/messaging',
@@ -158,7 +160,7 @@ const App: React.FC = () => {
     
     console.log('🔗 [App] Checking URL for routing:', { path, search: window.location.search });
     
-    // Route based on URL path
+    // Route based on URL path - More comprehensive routing
     if (path === '/verify-email' && searchParams.has('token')) {
       console.log('🔐 [App] Detected email verification link, navigating to email_verification page');
       setCurrentPage('email_verification');
@@ -174,16 +176,54 @@ const App: React.FC = () => {
     } else if (path === '/job-search') {
       console.log('🔐 [App] Detected job search page, navigating to job_search');
       setCurrentPage('job_search');
+    } else if (path === '/companies') {
+      console.log('🔐 [App] Detected companies directory page, navigating to companies_directory');
+      setCurrentPage('companies_directory');
     } else if (path === '/about') {
       console.log('🔐 [App] Detected about page, navigating to about');
       setCurrentPage('about');
+    } else if (path === '/dashboard/job-seeker' || path === '/dashboard') {
+      console.log('🔐 [App] Detected job seeker dashboard, checking auth');
+      if (isAuthenticated && userType === 'job_seeker') {
+        setCurrentPage('job_seeker_dashboard');
+      } else {
+        setCurrentPage('login');
+      }
+    } else if (path === '/dashboard/employer') {
+      console.log('🔐 [App] Detected employer dashboard, checking auth');
+      if (isAuthenticated && userType === 'employer') {
+        setCurrentPage('employer_dashboard');
+      } else {
+        setCurrentPage('login');
+      }
+    } else if (path === '/dashboard/admin') {
+      console.log('🔐 [App] Detected admin dashboard, checking auth');
+      if (isAuthenticated && userType === 'admin') {
+        setCurrentPage('admin_dashboard');
+      } else {
+        setCurrentPage('login');
+      }
+    } else if (path === '/messaging') {
+      console.log('🔐 [App] Detected messaging page, checking auth');
+      if (isAuthenticated) {
+        setCurrentPage('messaging');
+      } else {
+        setCurrentPage('login');
+      }
+    } else if (path === '/create-job') {
+      console.log('🔐 [App] Detected create job page, checking auth');
+      if (isAuthenticated && userType === 'employer') {
+        setCurrentPage('create_job');
+      } else {
+        setCurrentPage('login');
+      }
     } else {
       console.log('🔐 [App] Default route, staying on landing page');
       setCurrentPage('landing');
     }
     
     window.scrollTo(0, 0);
-  }, []);
+  }, [isAuthenticated, userType]); // Add dependencies
 
   // Handle browser back/forward buttons
   useEffect(() => {
@@ -204,6 +244,8 @@ const App: React.FC = () => {
         setCurrentPage('forgot_password');
       } else if (path === '/job-search') {
         setCurrentPage('job_search');
+      } else if (path === '/companies') {
+        setCurrentPage('companies_directory');
       } else if (path === '/about') {
         setCurrentPage('about');
       } else {
@@ -356,6 +398,22 @@ const App: React.FC = () => {
     }
   };
 
+  const handleFollowCompany = (companyId: string) => {
+    // Add company to followed companies list
+    const followedCompanies = JSON.parse(localStorage.getItem('followedCompanies') || '[]');
+    if (!followedCompanies.includes(companyId)) {
+      followedCompanies.push(companyId);
+      localStorage.setItem('followedCompanies', JSON.stringify(followedCompanies));
+    }
+  };
+
+  const handleUnfollowCompany = (companyId: string) => {
+    // Remove company from followed companies list
+    const followedCompanies = JSON.parse(localStorage.getItem('followedCompanies') || '[]');
+    const updatedCompanies = followedCompanies.filter((id: string) => id !== companyId);
+    localStorage.setItem('followedCompanies', JSON.stringify(updatedCompanies));
+  };
+
   const handleSaveSearch = () => {
     const newSearch: SavedSearch = {
         id: `search-${Date.now()}`,
@@ -505,22 +563,25 @@ const App: React.FC = () => {
                     onViewCompanyProfile={handleViewCompanyProfile}
                     onStartPracticeInterview={handleStartPracticeInterview}
                 />;
+      case 'companies_directory':
+        return <CompaniesDirectoryPage 
+                    onViewCompanyProfile={handleViewCompanyProfile}
+                    onNavigate={navigate}
+                />;
       case 'company_profile':
         {
           if (!selectedCompanyId) {
             navigate('job_search');
             return null;
           }
-          const company = MOCK_COMPANIES.find(c => c.id === selectedCompanyId);
-          if (!company) {
-            navigate('job_search');
-            return null;
-          }
           return <CompanyProfilePage 
-                      company={company}
+                      companyId={selectedCompanyId}
+                      user={user || {} as User}
+                      onFollowCompany={handleFollowCompany}
+                      onUnfollowCompany={handleUnfollowCompany}
+                      onApplyJob={handleApplyJob}
                       onViewJobDetails={handleViewJobDetails}
-                      onBack={() => navigate('job_search')}
-                      onViewCompanyProfile={handleViewCompanyProfile}
+                      onBack={() => navigate(userType === 'job_seeker' ? 'job_seeker_dashboard' : 'job_search')}
                   />;
         }
       case 'messaging':
@@ -529,6 +590,17 @@ const App: React.FC = () => {
             currentUser={user}
             conversations={conversations}
             onBack={() => navigate(userType === 'employer' ? 'employer_dashboard' : 'job_seeker_dashboard')}
+          />
+        ) : <LoginPage onNavigate={navigate} onLoginSuccess={handleLogin} onEmployerLogin={handleEmployerLogin} onAdminLogin={handleAdminLogin} />;
+      case 'test_features':
+        return <TestFeaturesPage onNavigate={navigate} user={user} />;
+      case 'linkedin_dashboard':
+        return isAuthenticated && user ? (
+          <LinkedInStyleDashboard
+            user={user}
+            onNavigate={navigate}
+            onViewJobDetails={handleViewJobDetails}
+            onViewCompanyProfile={handleViewCompanyProfile}
           />
         ) : <LoginPage onNavigate={navigate} onLoginSuccess={handleLogin} onEmployerLogin={handleEmployerLogin} onAdminLogin={handleAdminLogin} />;
       case 'universal_dashboard':
@@ -562,6 +634,16 @@ const App: React.FC = () => {
                 onCreatePost={handleCreatePost}
                 onConnectionRequestAction={handleConnectionRequest}
                 onPracticeHandled={() => setJobToPractice(null)}
+                onApplyJob={handleApplyJob}
+                onSaveJob={handleToggleSaveJob}
+                onFollowCompany={(companyId) => {
+                  console.log('Following company:', companyId);
+                  // Add company follow logic here
+                }}
+                onUnfollowCompany={(companyId) => {
+                  console.log('Unfollowing company:', companyId);
+                  // Add company unfollow logic here
+                }}
             />
         ) : <LoginPage onNavigate={navigate} onLoginSuccess={handleLogin} onEmployerLogin={handleEmployerLogin} onAdminLogin={handleAdminLogin} />;
       case 'employer_dashboard':
@@ -618,7 +700,7 @@ const App: React.FC = () => {
             </LazySection>
             <LazySection>
               <div id="insights">
-                <InsightsSection />
+                <MarketInsightsSection />
               </div>
             </LazySection>
             <LazySection>
@@ -629,11 +711,6 @@ const App: React.FC = () => {
             <LazySection>
               <div id="categories">
                 <JobCategories />
-              </div>
-            </LazySection>
-            <LazySection>
-              <div id="roadmap">
-                <Roadmap />
               </div>
             </LazySection>
             <LazySection>
@@ -686,16 +763,11 @@ const App: React.FC = () => {
             {renderPage()}
           </main>
         </Suspense>
-        {/* Hide footer on auth pages */}
-        {!['login', 'signup', 'email_verification', 'forgot_password'].includes(currentPage) && (
+        {/* Hide footer on auth pages and dashboard pages */}
+        {!['login', 'signup', 'email_verification', 'forgot_password', 'job_seeker_dashboard', 'employer_dashboard'].includes(currentPage) && (
           <Footer onNavigate={navigate} />
         )}
         <ChatBot />
-        
-        {/* Analytics Dashboard - only in development or for admins */}
-        {(process.env.NODE_ENV === 'development' || (user && user.userType === 'admin')) && (
-          <AnalyticsDashboard />
-        )}
       </div>
     </ErrorBoundary>
   );

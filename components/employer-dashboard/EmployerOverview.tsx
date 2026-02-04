@@ -5,10 +5,14 @@ import { BriefcaseIcon } from '../../constants';
 import { UsersIcon } from '../icons/UsersIcon';
 import { EyeIcon } from '../icons/EyeIcon';
 import { EmployerDashboardTab } from '../../pages/EmployerDashboardPage';
+import UnifiedSocialFeed from '../feed/UnifiedSocialFeed';
 
 interface EmployerOverviewProps {
   user: User;
   onViewJobDetails: (job: Job) => void;
+  onViewCompanyProfile: (companyId: string) => void;
+  onApplyJob: (job: Job) => void;
+  onSaveJob: (job: Job) => void;
   setActiveTab: (tab: EmployerDashboardTab) => void;
 }
 
@@ -24,7 +28,14 @@ const StatCard: React.FC<{ value: string | number; label: string; icon: React.Re
     </div>
 );
 
-const EmployerOverview: React.FC<EmployerOverviewProps> = ({ user, onViewJobDetails, setActiveTab }) => {
+const EmployerOverview: React.FC<EmployerOverviewProps> = ({ 
+    user, 
+    onViewJobDetails, 
+    onViewCompanyProfile,
+    onApplyJob,
+    onSaveJob,
+    setActiveTab 
+}) => {
     const totalViews = EMPLOYER_JOBS.reduce((acc, job) => acc + (job.viewsCount || 0), 0);
     const totalApplications = EMPLOYER_APPLICATIONS.length;
     const activeJobs = EMPLOYER_JOBS.filter(job => job.status === 'Published').length;
@@ -32,7 +43,7 @@ const EmployerOverview: React.FC<EmployerOverviewProps> = ({ user, onViewJobDeta
     return (
         <div className="space-y-8">
             <div className="bg-white p-8 rounded-lg shadow-md">
-                <h1 className="text-3xl font-bold text-neutral-dark">Welcome, {user.name.split(' ')[0]}!</h1>
+                <h1 className="text-3xl font-bold text-neutral-dark">Welcome, {user.name ? user.name.split(' ')[0] : 'User'}!</h1>
                 <p className="text-gray-600 mt-2">Here's what's happening with your job postings.</p>
             </div>
 
@@ -82,6 +93,27 @@ const EmployerOverview: React.FC<EmployerOverviewProps> = ({ user, onViewJobDeta
                             ))}
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            {/* Professional Network Feed */}
+            <div className="bg-white rounded-lg shadow-md">
+                <div className="p-6 border-b">
+                    <h2 className="text-xl font-bold text-neutral-dark">Professional Network</h2>
+                    <p className="text-gray-600 text-sm mt-1">See what professionals in your network are sharing</p>
+                </div>
+                <div className="p-6">
+                    <UnifiedSocialFeed
+                        currentUser={user}
+                        userType="employer"
+                        onViewJobDetails={onViewJobDetails}
+                        onViewCompanyProfile={onViewCompanyProfile}
+                        onApplyJob={onApplyJob}
+                        onSaveJob={onSaveJob}
+                        onViewProfile={(userId) => {
+                            console.log('View profile:', userId);
+                        }}
+                    />
                 </div>
             </div>
         </div>

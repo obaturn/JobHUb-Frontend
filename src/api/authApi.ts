@@ -3,8 +3,10 @@
  * Communicates with backend at /api/v1/auth/*
  */
 
-import { httpPost, httpGet } from './httpClient';
+import { httpPost, httpGet, httpClient } from './httpClient';
 import { User } from '@/types';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081/api/v1';
 
 export interface LoginRequest {
   email: string;
@@ -58,7 +60,13 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
     deviceId: credentials.deviceId
   });
   
-  return httpPost<LoginResponse>('/api/v1/auth/login', credentials);
+  // Transform to match backend LoginRequest format
+  const loginPayload = {
+    email: credentials.email,
+    password: credentials.password
+  };
+  
+  return httpPost<LoginResponse>('/auth/login', loginPayload);
 }
 
 /**
@@ -122,12 +130,9 @@ export async function signup(userData: SignupRequest): Promise<SignupResponse> {
   // Use retry logic to handle concurrent modification errors
   return retryWithBackoff(async () => {
     try {
-      // Use fetch directly for register to avoid any auth headers
-      const response = await fetch('/api/v1/auth/register', {
+      // Use httpClient for consistent URL handling
+      const response = await httpClient('/auth/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(payload),
       });
 
@@ -162,7 +167,7 @@ export async function signup(userData: SignupRequest): Promise<SignupResponse> {
  * Get current user profile
  */
 export async function getCurrentUser(): Promise<User> {
-  return httpGet<User>('/api/v1/auth/me');
+  return httpGet<User>('/auth/me');
 }
 
 /**
@@ -172,11 +177,8 @@ export async function verifyEmail(token: string): Promise<{ message: string }> {
   try {
     console.log('📧 [AuthAPI] Verifying email with token:', token.substring(0, 20) + '...');
     
-    const response = await fetch('/api/v1/auth/verify-email', {
+    const response = await httpClient('/auth/verify-email', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({ token }),
     });
 
@@ -209,11 +211,8 @@ export async function resendVerificationEmail(email: string): Promise<{ message:
   try {
     console.log('📧 [AuthAPI] Requesting resend verification for:', email);
     
-    const response = await fetch('/api/v1/auth/resend-verification', {
+    const response = await httpClient('/auth/send-verification-email', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({ email }),
     });
 
@@ -244,11 +243,8 @@ export async function resendVerificationEmail(email: string): Promise<{ message:
 export async function skipEmailVerification(email: string): Promise<void> {
   try {
     console.log('📧 [AuthAPI] Attempting to skip email verification for development');
-    const response = await fetch('/api/v1/auth/dev/skip-verification', {
+    const response = await httpClient('/auth/dev/skip-verification', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({ email }),
     });
 
@@ -274,7 +270,7 @@ export async function skipEmailVerification(email: string): Promise<void> {
  * Logout user
  */
 export async function logout(): Promise<void> {
-  await httpPost('/api/v1/auth/logout', {});
+  await httpPost('/auth/logout', {});
 }
 
 /**
@@ -283,7 +279,7 @@ export async function logout(): Promise<void> {
 export async function refreshToken(
   refreshTokenValue: string
 ): Promise<RefreshTokenResponse> {
-  return httpPost<RefreshTokenResponse>('/api/v1/auth/refresh', {
+  return httpPost<RefreshTokenResponse>('/auth/refresh', {
     refreshToken: refreshTokenValue,
   });
 }

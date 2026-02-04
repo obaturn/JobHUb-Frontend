@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from '../../types';
 import { BriefcaseIcon } from '../../constants';
 import { PencilIcon } from '../icons/PencilIcon';
@@ -8,6 +8,7 @@ import { XMarkIcon } from '../icons/XMarkIcon';
 import { AcademicCapIcon } from '../icons/AcademicCapIcon';
 import { LinkIcon } from '../icons/LinkIcon';
 import { CheckBadgeIcon } from '../icons/CheckBadgeIcon';
+import { getProfile, updateProfile, ProfileUpdateRequest } from '../../src/api/profileApi';
 
 interface MyProfileProps {
   initialUser: User;
@@ -15,7 +16,56 @@ interface MyProfileProps {
 
 const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
     const [isEditing, setIsEditing] = useState(false);
-    const [user, setUser] = useState(initialUser);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
+    
+    // Ensure user has default values for arrays to prevent undefined errors
+    const [user, setUser] = useState({
+        ...initialUser,
+        skills: initialUser.skills || [],
+        experience: initialUser.experience || [],
+        education: initialUser.education || [],
+        about: initialUser.about || '',
+        location: initialUser.location || '',
+        headline: initialUser.headline || '',
+        portfolioUrl: initialUser.portfolioUrl || '',
+        avatar: initialUser.avatar || 'https://picsum.photos/seed/default/200/200',
+        name: initialUser.name || 'User'
+    });
+
+    // Profile data from backend
+    const [profile, setProfile] = useState<any>(null);
+
+    // Load profile data on component mount
+    useEffect(() => {
+        loadProfile();
+    }, []);
+
+    const loadProfile = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const profileData = await getProfile();
+            setProfile(profileData);
+            
+            // Update user state with profile data
+            setUser(prev => ({
+                ...prev,
+                name: profileData.firstName && profileData.lastName 
+                    ? `${profileData.firstName} ${profileData.lastName}` 
+                    : prev.name,
+                about: profileData.bio || prev.about,
+                location: profileData.location || prev.location,
+                avatar: profileData.avatarUrl || prev.avatar,
+            }));
+        } catch (err: any) {
+            console.error('Profile load error:', err);
+            setError(err.message || 'Failed to load profile');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Form states for adding new entries
     const [newSkill, setNewSkill] = useState('');
@@ -24,17 +74,63 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
     const [isAddingEducation, setIsAddingEducation] = useState(false);
     const [newEducation, setNewEducation] = useState({ institution: '', degree: '', fieldOfStudy: '', graduationYear: '' });
 
-    const handleSave = () => {
-        // Here you would typically make an API call to save the user data
-        console.log("Saving user data:", user);
-        setIsEditing(false);
+    const handleSave = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            
+            // Split name into first and last name
+            const nameParts = user.name.split(' ');
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts.slice(1).join(' ') || '';
+            
+            // Prepare profile update data matching your backend structure
+            const profileUpdateData: ProfileUpdateRequest = {
+                firstName: firstName,
+                lastName: lastName,
+                bio: user.about,
+                location: user.location,
+                avatarUrl: user.avatar,
+                // Add phone if available
+                phone: user.phone || undefined,
+            };
+            
+            console.log('Sending profile update:', profileUpdateData);
+            
+            await updateProfile(profileUpdateData);
+            setSuccess('Profile updated successfully!');
+            setIsEditing(false);
+            
+            // Clear success message after 3 seconds
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err: any) {
+            console.error('Profile update error:', err);
+            setError(err.message || 'Failed to update profile. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
     
     const handleCancel = () => {
-        setUser(initialUser);
+        // Reload profile to reset changes
+        loadProfile();
+        setUser(prev => ({
+            ...initialUser,
+            skills: initialUser.skills || [],
+            experience: initialUser.experience || [],
+            education: initialUser.education || [],
+            about: initialUser.about || '',
+            location: initialUser.location || '',
+            headline: initialUser.headline || '',
+            portfolioUrl: initialUser.portfolioUrl || '',
+            avatar: initialUser.avatar || 'https://picsum.photos/seed/default/200/200',
+            name: initialUser.name || 'User'
+        }));
         setIsEditing(false);
         setIsAddingExperience(false);
         setIsAddingEducation(false);
+        setError(null);
+        setSuccess(null);
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
@@ -43,41 +139,55 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
     };
 
     const handleAddSkill = () => {
-        if (newSkill.trim() && !user.skills.includes(newSkill.trim())) {
-            setUser(prev => ({ ...prev, skills: [...prev.skills, newSkill.trim()] }));
+        if (newSkill.trim() && !(user.skills || []).includes(newSkill.trim())) {
+            setUser(prev => ({ ...prev, skills: [...(prev.skills || []), newSkill.trim()] }));
             setNewSkill('');
         }
     };
 
     const handleRemoveSkill = (skillToRemove: string) => {
-        setUser(prev => ({ ...prev, skills: prev.skills.filter(skill => skill !== skillToRemove) }));
+        setUser(prev => ({ ...prev, skills: (prev.skills || []).filter(skill => skill !== skillToRemove) }));
     };
 
     const handleAddExperience = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        setUser(prev => ({...prev, experience: [newExperience, ...prev.experience]}));
+        setUser(prev => ({...prev, experience: [newExperience, ...(prev.experience || [])]}));
         setNewExperience({ title: '', company: '', period: '', description: '' });
         setIsAddingExperience(false);
     };
     
     const handleRemoveExperience = (indexToRemove: number) => {
-        setUser(prev => ({...prev, experience: prev.experience.filter((_, index) => index !== indexToRemove)}));
+        setUser(prev => ({...prev, experience: (prev.experience || []).filter((_, index) => index !== indexToRemove)}));
     };
 
     const handleAddEducation = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        setUser(prev => ({...prev, education: [newEducation, ...prev.education]}));
+        setUser(prev => ({...prev, education: [newEducation, ...(prev.education || [])]}));
         setNewEducation({ institution: '', degree: '', fieldOfStudy: '', graduationYear: '' });
         setIsAddingEducation(false);
     };
     
     const handleRemoveEducation = (indexToRemove: number) => {
-        setUser(prev => ({...prev, education: prev.education.filter((_, index) => index !== indexToRemove)}));
+        setUser(prev => ({...prev, education: (prev.education || []).filter((_, index) => index !== indexToRemove)}));
     };
 
 
     return (
         <div className="space-y-8">
+            {/* Error Message */}
+            {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p className="text-sm text-red-600">{error}</p>
+                </div>
+            )}
+
+            {/* Success Message */}
+            {success && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <p className="text-sm text-green-600">{success}</p>
+                </div>
+            )}
+
             {/* Enhanced Header */}
             <div className="bg-gradient-to-r from-white to-gray-50 rounded-xl shadow-sm border border-gray-100 p-8">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
@@ -127,12 +237,25 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
                                 </button>
                                 <button
                                     onClick={handleSave}
-                                    className="px-6 py-3 text-sm bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark hover:shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center gap-2"
+                                    disabled={loading}
+                                    className="px-6 py-3 text-sm bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark hover:shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                                 >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    Save Changes
+                                    {loading ? (
+                                        <>
+                                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Saving...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                            Save Changes
+                                        </>
+                                    )}
                                 </button>
                             </>
                         ) : (
@@ -322,7 +445,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
                         </div>
                     )}
                     <div className="flex flex-wrap gap-2">
-                        {user.skills.map(skill => (
+                        {(user.skills || []).map(skill => (
                             <span key={skill} className="bg-blue-100 text-primary text-sm font-medium px-3 py-1.5 rounded-full flex items-center gap-2">
                                 {skill}
                                 {isEditing && (
@@ -332,6 +455,9 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
                                 )}
                             </span>
                         ))}
+                        {(!user.skills || user.skills.length === 0) && !isEditing && (
+                            <p className="text-gray-400 italic">No skills added yet</p>
+                        )}
                     </div>
                 </div>
             </div>
@@ -355,7 +481,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
                     </form>
                 )}
                 <div className="space-y-6">
-                    {user.experience.map((exp, index) => (
+                    {(user.experience || []).map((exp, index) => (
                         <div key={index} className="flex gap-4 group">
                             <div className="w-12 h-12 bg-neutral-light rounded-lg flex items-center justify-center flex-shrink-0">
                                 <BriefcaseIcon className="w-6 h-6 text-primary"/>
@@ -373,6 +499,9 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
                             )}
                         </div>
                     ))}
+                    {(!user.experience || user.experience.length === 0) && !isEditing && (
+                        <p className="text-gray-400 italic">No experience added yet</p>
+                    )}
                 </div>
             </div>
 
@@ -399,7 +528,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
                     </form>
                 )}
                 <div className="space-y-6">
-                    {user.education.map((edu, index) => (
+                    {(user.education || []).map((edu, index) => (
                         <div key={index} className="flex gap-4 group">
                             <div className="w-12 h-12 bg-neutral-light rounded-lg flex items-center justify-center flex-shrink-0">
                                 <AcademicCapIcon className="w-6 h-6 text-primary"/>
@@ -416,6 +545,9 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
                             )}
                         </div>
                     ))}
+                    {(!user.education || user.education.length === 0) && !isEditing && (
+                        <p className="text-gray-400 italic">No education added yet</p>
+                    )}
                 </div>
             </div>
         </div>

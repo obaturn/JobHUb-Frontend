@@ -1,7 +1,7 @@
 import React from 'react';
 import type { ReactElement } from 'react';
 
-export type Page = 'landing' | 'login' | 'signup' | 'email_verification' | 'forgot_password' | 'onboarding' | 'universal_dashboard' | 'job_search' | 'job_details' | 'job_seeker_dashboard' | 'employer_dashboard' | 'admin_dashboard' | 'company_profile' | 'messaging' | 'create_job';
+export type Page = 'landing' | 'login' | 'signup' | 'email_verification' | 'forgot_password' | 'onboarding' | 'universal_dashboard' | 'adaptive_dashboard' | 'linkedin_dashboard' | 'test_features' | 'job_search' | 'job_details' | 'job_seeker_dashboard' | 'employer_dashboard' | 'admin_dashboard' | 'company_profile' | 'companies_directory' | 'messaging' | 'create_job' | 'about';
 
 export interface Job {
   id: number;
@@ -244,7 +244,7 @@ export interface Referral {
   date: string;
 }
 
-export type JobSeekerDashboardTab = 'overview' | 'my_network' | 'applications' | 'saved_jobs' | 'saved_searches' | 'resume_management' | 'profile' | 'messages' | 'skill_assessments' | 'career_explorer' | 'referrals' | 'interview_practice';
+export type JobSeekerDashboardTab = 'overview' | 'my_network' | 'companies' | 'applications' | 'saved_jobs' | 'saved_searches' | 'resume_management' | 'profile' | 'messages' | 'skill_assessments' | 'career_explorer' | 'referrals' | 'interview_practice';
 
 // Career Path Explorer types
 export interface CareerStep {
