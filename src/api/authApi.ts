@@ -270,7 +270,51 @@ export async function skipEmailVerification(email: string): Promise<void> {
  * Logout user
  */
 export async function logout(): Promise<void> {
-  await httpPost('/auth/logout', {});
+  try {
+    console.log('📡 [AuthAPI] Sending logout request');
+    
+    const response = await httpClient('/auth/logout', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+
+    if (!response.ok) {
+      let errorMessage = `Logout failed with status ${response.status}`;
+      
+      try {
+        const responseText = await response.text();
+        if (responseText.trim()) {
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        }
+      } catch (e) {
+        // If we can't parse the error response, use the default message
+        console.warn('Could not parse logout error response');
+      }
+      
+      console.error('🔴 [AuthAPI] Logout failed:', errorMessage);
+      throw new Error(errorMessage);
+    }
+
+    // Success - check if there's a response body
+    try {
+      const responseText = await response.text();
+      if (responseText.trim()) {
+        // If there's a response body, try to parse it
+        const result = JSON.parse(responseText);
+        console.log('✅ [AuthAPI] Logout successful with response:', result);
+      } else {
+        // Empty response body is fine for logout
+        console.log('✅ [AuthAPI] Logout successful (empty response)');
+      }
+    } catch (e) {
+      // If we can't parse the success response, that's still okay
+      console.log('✅ [AuthAPI] Logout successful (non-JSON response)');
+    }
+  } catch (error) {
+    console.error('❌ [AuthAPI] Logout error:', error);
+    throw error;
+  }
 }
 
 /**

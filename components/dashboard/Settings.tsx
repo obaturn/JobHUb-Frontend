@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '../../types';
 import MFASettings from './MFASettings';
-import { getProfile, updateProfile, deleteAccount, ProfileUpdateRequest } from '../../src/api/profileApi';
+import { getProfile, updateProfile, deleteAccount, changePassword, ProfileUpdateRequest } from '../../src/api/profileApi';
 import { testApiConnection, testAuthenticatedEndpoint } from '../../src/utils/apiTest';
 
 interface SettingsProps {
@@ -61,15 +61,18 @@ const Settings: React.FC<SettingsProps> = ({ user }) => {
       setLoading(true);
       setError(null);
       
-      // Note: You'll need to add a password change endpoint to your backend
-      // For now, this is a placeholder
-      console.log('Password update requested');
+      // Call the real password change endpoint
+      await changePassword({
+        currentPassword,
+        newPassword
+      });
+      
       setSuccess('Password updated successfully');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (err) {
-      setError('Failed to update password');
+    } catch (err: any) {
+      setError(err.message || 'Failed to update password');
     } finally {
       setLoading(false);
     }

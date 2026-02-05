@@ -202,13 +202,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     try {
       // Attempt to call logout endpoint (best effort)
+      console.log('🔐 [AuthStore] Attempting logout...');
       await authApi.logout();
+      console.log('✅ [AuthStore] Server logout successful');
     } catch (error) {
-      console.warn('Logout API call failed:', error);
+      console.warn('⚠️ [AuthStore] Logout API call failed:', error);
       // Continue with local cleanup even if API call fails
+      // This ensures user can always log out locally
     }
 
-    // Clear local state
+    // Clear local state regardless of API call result
+    console.log('🧹 [AuthStore] Clearing local authentication data');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
@@ -225,6 +229,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       loading: false,
       error: null,
     });
+    
+    console.log('✅ [AuthStore] Logout completed successfully');
   },
 
   updateProfile: (updates) => {

@@ -104,31 +104,65 @@ export const updateProfile = async (profileData: ProfileUpdateRequest): Promise<
 };
 
 /**
- * Upload profile avatar - you may need to add this endpoint to your backend
+ * Upload profile avatar - calls your backend /api/v1/auth/profile/avatar
  */
-export const uploadAvatar = async (file: File): Promise<{ avatarUrl: string }> => {
+export const uploadAvatar = async (avatarData: { avatarUrl: string }): Promise<{ message: string }> => {
   try {
-    const formData = new FormData();
-    formData.append('avatar', file);
-
-    const token = getAuthToken();
-    const response = await fetch(`${API_BASE_URL}/auth/profile/avatar`, {
+    const response = await makeAuthenticatedRequest('/auth/profile/avatar', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-      body: formData,
+      body: JSON.stringify(avatarData),
     });
 
-    if (!response.ok) {
-      throw new Error('Failed to upload avatar');
-    }
-
     const data = await response.json();
-    return { avatarUrl: data.avatarUrl };
+    return data;
   } catch (error) {
     console.error('Upload Avatar Error:', error);
     throw new Error('Failed to upload avatar. Please try again.');
+  }
+};
+
+/**
+ * Upload avatar file (for file uploads - converts to URL first)
+ * This is a helper function that would typically upload to a file service first
+ */
+export const uploadAvatarFile = async (file: File): Promise<{ message: string; avatarUrl: string }> => {
+  try {
+    // In a real implementation, you would:
+    // 1. Upload file to a file storage service (AWS S3, Cloudinary, etc.)
+    // 2. Get the URL back
+    // 3. Then call uploadAvatar with the URL
+    
+    // For now, we'll create a temporary URL (you'll need to implement actual file upload)
+    const tempUrl = URL.createObjectURL(file);
+    
+    // Call your backend with the avatar URL
+    const result = await uploadAvatar({ avatarUrl: tempUrl });
+    
+    return {
+      message: result.message,
+      avatarUrl: tempUrl
+    };
+  } catch (error) {
+    console.error('Upload Avatar File Error:', error);
+    throw new Error('Failed to upload avatar file. Please try again.');
+  }
+};
+
+/**
+ * Change user password - calls your backend /api/v1/auth/password
+ */
+export const changePassword = async (passwordData: { currentPassword: string; newPassword: string }): Promise<{ message: string }> => {
+  try {
+    const response = await makeAuthenticatedRequest('/auth/password', {
+      method: 'PUT',
+      body: JSON.stringify(passwordData),
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Change Password Error:', error);
+    throw new Error('Failed to change password. Please try again.');
   }
 };
 

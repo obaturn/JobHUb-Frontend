@@ -9,6 +9,9 @@ import { AcademicCapIcon } from '../icons/AcademicCapIcon';
 import { LinkIcon } from '../icons/LinkIcon';
 import { CheckBadgeIcon } from '../icons/CheckBadgeIcon';
 import { getProfile, updateProfile, ProfileUpdateRequest } from '../../src/api/profileApi';
+import { getSkills, createSkill, deleteSkill, Skill, SkillRequest } from '../../src/api/skillsApi';
+import { getExperiences, createExperience, updateExperience, deleteExperience, Experience, ExperienceRequest } from '../../src/api/experienceApi';
+import { getEducations, createEducation, updateEducation, deleteEducation, Education, EducationRequest } from '../../src/api/educationApi';
 
 interface MyProfileProps {
   initialUser: User;
@@ -36,18 +39,32 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
 
     // Profile data from backend
     const [profile, setProfile] = useState<any>(null);
+    const [skills, setSkills] = useState<Skill[]>([]);
+    const [experiences, setExperiences] = useState<Experience[]>([]);
+    const [educations, setEducations] = useState<Education[]>([]);
 
     // Load profile data on component mount
     useEffect(() => {
-        loadProfile();
+        loadAllProfileData();
     }, []);
 
-    const loadProfile = async () => {
+    const loadAllProfileData = async () => {
         try {
             setLoading(true);
             setError(null);
-            const profileData = await getProfile();
+            
+            // Load all profile data in parallel
+            const [profileData, skillsData, experiencesData, educationsData] = await Promise.all([
+                getProfile(),
+                getSkills(),
+                getExperiences(),
+                getEducations()
+            ]);
+            
             setProfile(profileData);
+            setSkills(skillsData);
+            setExperiences(experiencesData);
+            setEducations(educationsData);
             
             // Update user state with profile data
             setUser(prev => ({
@@ -58,6 +75,19 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
                 about: profileData.bio || prev.about,
                 location: profileData.location || prev.location,
                 avatar: profileData.avatarUrl || prev.avatar,
+                skills: skillsData.map(skill => skill.name) || prev.skills,
+                experience: experiencesData.map(exp => ({
+                    title: exp.jobTitle,
+                    company: exp.companyName,
+                    period: formatDateRange(exp.startDate, exp.endDate, exp.currentPosition),
+                    description: exp.description || ''
+                })) || prev.experience,
+                education: educationsData.map(edu => ({
+                    institution: edu.institutionName,
+                    degree: edu.degree,
+                    fieldOfStudy: edu.fieldOfStudy || '',
+                    graduationYear: edu.endDate ? new Date(edu.endDate).getFullYear().toString() : ''
+                })) || prev.education
             }));
         } catch (err: any) {
             console.error('Profile load error:', err);
@@ -65,6 +95,18 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const formatDateRange = (startDate: string, endDate?: string, isCurrent?: boolean): string => {
+        const start = new Date(startDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        if (isCurrent) {
+            return `${start} - Present`;
+        }
+        if (endDate) {
+            const end = new Date(endDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            return `${start} - ${end}`;
+        }
+        return start;
     };
 
     // Form states for adding new entries
@@ -80,17 +122,28 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
             setError(null);
             
             // Split name into first and last name
-            const nameParts = user.name.split(' ');
+            const nameParts = user.name.trim().split(' ');
             const firstName = nameParts[0] || '';
-            const lastName = nameParts.slice(1).join(' ') || '';
+            const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'User'; // Provide default lastName
+            
+            // Validate required fields
+            if (!firstName.trim()) {
+                setError('First name is required');
+                return;
+            }
+            
+            if (!lastName.trim() || lastName.length < 1) {
+                setError('Last name is required and must be at least 1 character');
+                return;
+            }
             
             // Prepare profile update data matching your backend structure
             const profileUpdateData: ProfileUpdateRequest = {
-                firstName: firstName,
-                lastName: lastName,
-                bio: user.about,
-                location: user.location,
-                avatarUrl: user.avatar,
+                firstName: firstName.trim(),
+                lastName: lastName.trim(),
+                bio: user.about || '',
+                location: user.location || '',
+                avatarUrl: user.avatar || '',
                 // Add phone if available
                 phone: user.phone || undefined,
             };
@@ -100,6 +153,9 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
             await updateProfile(profileUpdateData);
             setSuccess('Profile updated successfully!');
             setIsEditing(false);
+            
+            // Reload data to get fresh state
+            await loadAllProfileData();
             
             // Clear success message after 3 seconds
             setTimeout(() => setSuccess(null), 3000);
@@ -113,7 +169,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
     
     const handleCancel = () => {
         // Reload profile to reset changes
-        loadProfile();
+        loadAllProfileData();
         setUser(prev => ({
             ...initialUser,
             skills: initialUser.skills || [],
@@ -138,37 +194,166 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
         setUser(prev => ({ ...prev, [name]: name === 'yearsOfExperience' ? (value === '' ? undefined : Number(value)) : value }));
     };
 
-    const handleAddSkill = () => {
-        if (newSkill.trim() && !(user.skills || []).includes(newSkill.trim())) {
-            setUser(prev => ({ ...prev, skills: [...(prev.skills || []), newSkill.trim()] }));
+    const handleAddSkill = async () => {
+        if (!newSkill.trim()) return;
+        
+        try {
+            setLoading(true);
+            const skillData: SkillRequest = {
+                name: newSkill.trim(),
+                category: 'General',
+                proficiencyLevel: 'Intermediate'
+            };
+            
+            const newSkillObj = await createSkill(skillData);
+            setSkills(prev => [...prev, newSkillObj]);
+            setUser(prev => ({ 
+                ...prev, 
+                skills: [...(prev.skills || []), newSkillObj.name] 
+            }));
             setNewSkill('');
+            setSuccess('Skill added successfully!');
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err: any) {
+            setError(err.message || 'Failed to add skill');
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleRemoveSkill = (skillToRemove: string) => {
-        setUser(prev => ({ ...prev, skills: (prev.skills || []).filter(skill => skill !== skillToRemove) }));
+    const handleRemoveSkill = async (skillToRemove: string) => {
+        try {
+            setLoading(true);
+            const skillToDelete = skills.find(skill => skill.name === skillToRemove);
+            if (!skillToDelete) return;
+            
+            await deleteSkill(skillToDelete.id);
+            setSkills(prev => prev.filter(skill => skill.id !== skillToDelete.id));
+            setUser(prev => ({ 
+                ...prev, 
+                skills: (prev.skills || []).filter(skill => skill !== skillToRemove) 
+            }));
+            setSuccess('Skill removed successfully!');
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err: any) {
+            setError(err.message || 'Failed to remove skill');
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleAddExperience = (e: React.FormEvent<HTMLFormElement>) => {
+    const handleAddExperience = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        setUser(prev => ({...prev, experience: [newExperience, ...(prev.experience || [])]}));
-        setNewExperience({ title: '', company: '', period: '', description: '' });
-        setIsAddingExperience(false);
+        
+        try {
+            setLoading(true);
+            const experienceData: ExperienceRequest = {
+                jobTitle: newExperience.title,
+                companyName: newExperience.company,
+                startDate: new Date().toISOString(), // You might want to add proper date inputs
+                currentPosition: true,
+                remote: false,
+                description: newExperience.description,
+                employmentType: 'Full-time'
+            };
+            
+            const newExp = await createExperience(experienceData);
+            setExperiences(prev => [newExp, ...prev]);
+            setUser(prev => ({
+                ...prev, 
+                experience: [{
+                    title: newExp.jobTitle,
+                    company: newExp.companyName,
+                    period: formatDateRange(newExp.startDate, newExp.endDate, newExp.currentPosition),
+                    description: newExp.description || ''
+                }, ...(prev.experience || [])]
+            }));
+            setNewExperience({ title: '', company: '', period: '', description: '' });
+            setIsAddingExperience(false);
+            setSuccess('Experience added successfully!');
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err: any) {
+            setError(err.message || 'Failed to add experience');
+        } finally {
+            setLoading(false);
+        }
     };
     
-    const handleRemoveExperience = (indexToRemove: number) => {
-        setUser(prev => ({...prev, experience: (prev.experience || []).filter((_, index) => index !== indexToRemove)}));
+    const handleRemoveExperience = async (indexToRemove: number) => {
+        try {
+            setLoading(true);
+            const experienceToDelete = experiences[indexToRemove];
+            if (!experienceToDelete) return;
+            
+            await deleteExperience(experienceToDelete.id);
+            setExperiences(prev => prev.filter((_, index) => index !== indexToRemove));
+            setUser(prev => ({
+                ...prev, 
+                experience: (prev.experience || []).filter((_, index) => index !== indexToRemove)
+            }));
+            setSuccess('Experience removed successfully!');
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err: any) {
+            setError(err.message || 'Failed to remove experience');
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleAddEducation = (e: React.FormEvent<HTMLFormElement>) => {
+    const handleAddEducation = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        setUser(prev => ({...prev, education: [newEducation, ...(prev.education || [])]}));
-        setNewEducation({ institution: '', degree: '', fieldOfStudy: '', graduationYear: '' });
-        setIsAddingEducation(false);
+        
+        try {
+            setLoading(true);
+            const educationData: EducationRequest = {
+                institutionName: newEducation.institution,
+                degree: newEducation.degree,
+                fieldOfStudy: newEducation.fieldOfStudy,
+                startDate: new Date().toISOString(), // You might want to add proper date inputs
+                current: false
+            };
+            
+            const newEdu = await createEducation(educationData);
+            setEducations(prev => [newEdu, ...prev]);
+            setUser(prev => ({
+                ...prev, 
+                education: [{
+                    institution: newEdu.institutionName,
+                    degree: newEdu.degree,
+                    fieldOfStudy: newEdu.fieldOfStudy || '',
+                    graduationYear: newEducation.graduationYear
+                }, ...(prev.education || [])]
+            }));
+            setNewEducation({ institution: '', degree: '', fieldOfStudy: '', graduationYear: '' });
+            setIsAddingEducation(false);
+            setSuccess('Education added successfully!');
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err: any) {
+            setError(err.message || 'Failed to add education');
+        } finally {
+            setLoading(false);
+        }
     };
     
-    const handleRemoveEducation = (indexToRemove: number) => {
-        setUser(prev => ({...prev, education: (prev.education || []).filter((_, index) => index !== indexToRemove)}));
+    const handleRemoveEducation = async (indexToRemove: number) => {
+        try {
+            setLoading(true);
+            const educationToDelete = educations[indexToRemove];
+            if (!educationToDelete) return;
+            
+            await deleteEducation(educationToDelete.id);
+            setEducations(prev => prev.filter((_, index) => index !== indexToRemove));
+            setUser(prev => ({
+                ...prev, 
+                education: (prev.education || []).filter((_, index) => index !== indexToRemove)
+            }));
+            setSuccess('Education removed successfully!');
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err: any) {
+            setError(err.message || 'Failed to remove education');
+        } finally {
+            setLoading(false);
+        }
     };
 
 
@@ -296,6 +481,27 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-2">
+                        <label className="block text-sm font-semibold text-gray-700">Full Name</label>
+                        {isEditing ? (
+                            <input
+                                type="text"
+                                name="name"
+                                value={user.name}
+                                onChange={handleChange}
+                                className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                                placeholder="e.g., John Doe"
+                            />
+                        ) : (
+                            <p className="text-gray-900 font-medium text-lg">{user.name}</p>
+                        )}
+                        {isEditing && (
+                            <p className="text-xs text-gray-500">
+                                Please provide both first and last name (e.g., "John Doe")
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
                         <label className="block text-sm font-semibold text-gray-700">Professional Headline</label>
                         {isEditing ? (
                             <input
@@ -303,7 +509,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
                                 name="headline"
                                 value={user.headline}
                                 onChange={handleChange}
-                                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                                className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
                                 placeholder="e.g., Senior Frontend Developer"
                             />
                         ) : (
@@ -319,7 +525,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
                                 name="location"
                                 value={user.location}
                                 onChange={handleChange}
-                                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                                className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
                                 placeholder="e.g., San Francisco, CA"
                             />
                         ) : (
@@ -343,7 +549,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
                                 onChange={handleChange}
                                 min="0"
                                 max="50"
-                                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                                className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
                                 placeholder="e.g., 5"
                             />
                         ) : (
@@ -365,7 +571,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
                                 value={user.portfolioUrl || ''}
                                 onChange={handleChange}
                                 placeholder="https://your-portfolio.com"
-                                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                                className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
                             />
                         ) : (
                             user.portfolioUrl ? (
@@ -403,7 +609,8 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
                         value={user.about}
                         onChange={handleChange}
                         rows={5}
-                        className="w-full border border-gray-300 rounded-md p-2 focus:ring-primary focus:border-primary"
+                        className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 placeholder-gray-500 focus:ring-primary focus:border-primary"
+                        placeholder="Tell us about yourself, your experience, and what you're passionate about..."
                     />
                 ) : (
                     <p className="text-gray-600 leading-relaxed">{user.about}</p>
@@ -439,7 +646,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
                                 value={newSkill}
                                 onChange={(e) => setNewSkill(e.target.value)}
                                 placeholder="Add a new skill"
-                                className="flex-grow border border-gray-300 rounded-md p-2"
+                                className="flex-grow border border-gray-300 rounded-md p-2 bg-white text-gray-900 placeholder-gray-500 focus:ring-primary focus:border-primary"
                             />
                             <button onClick={handleAddSkill} className="px-4 py-2 bg-primary text-white rounded-md font-semibold">Add</button>
                         </div>
@@ -470,10 +677,37 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
                  </div>
                 {isEditing && isAddingExperience && (
                     <form onSubmit={handleAddExperience} className="mb-6 p-4 border rounded-md bg-neutral-light space-y-3">
-                        <input type="text" placeholder="Job Title" value={newExperience.title} onChange={e => setNewExperience({...newExperience, title: e.target.value})} required className="w-full border border-gray-300 rounded-md p-2"/>
-                        <input type="text" placeholder="Company" value={newExperience.company} onChange={e => setNewExperience({...newExperience, company: e.target.value})} required className="w-full border border-gray-300 rounded-md p-2"/>
-                        <input type="text" placeholder="Period (e.g., Jan 2021 - Present)" value={newExperience.period} onChange={e => setNewExperience({...newExperience, period: e.target.value})} required className="w-full border border-gray-300 rounded-md p-2"/>
-                        <textarea placeholder="Description" value={newExperience.description} onChange={e => setNewExperience({...newExperience, description: e.target.value})} rows={3} className="w-full border border-gray-300 rounded-md p-2"/>
+                        <input 
+                            type="text" 
+                            placeholder="Job Title" 
+                            value={newExperience.title} 
+                            onChange={e => setNewExperience({...newExperience, title: e.target.value})} 
+                            required 
+                            className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 placeholder-gray-500 focus:ring-primary focus:border-primary"
+                        />
+                        <input 
+                            type="text" 
+                            placeholder="Company" 
+                            value={newExperience.company} 
+                            onChange={e => setNewExperience({...newExperience, company: e.target.value})} 
+                            required 
+                            className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 placeholder-gray-500 focus:ring-primary focus:border-primary"
+                        />
+                        <input 
+                            type="text" 
+                            placeholder="Period (e.g., Jan 2021 - Present)" 
+                            value={newExperience.period} 
+                            onChange={e => setNewExperience({...newExperience, period: e.target.value})} 
+                            required 
+                            className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 placeholder-gray-500 focus:ring-primary focus:border-primary"
+                        />
+                        <textarea 
+                            placeholder="Description" 
+                            value={newExperience.description} 
+                            onChange={e => setNewExperience({...newExperience, description: e.target.value})} 
+                            rows={3} 
+                            className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 placeholder-gray-500 focus:ring-primary focus:border-primary"
+                        />
                         <div className="flex gap-2 justify-end">
                             <button type="button" onClick={() => setIsAddingExperience(false)} className="px-3 py-1 text-sm bg-gray-200 rounded-md">Cancel</button>
                             <button type="submit" className="px-3 py-1 text-sm bg-primary text-white rounded-md">Add</button>
@@ -517,10 +751,38 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
                 </div>
                 {isEditing && isAddingEducation && (
                     <form onSubmit={handleAddEducation} className="mb-6 p-4 border rounded-md bg-neutral-light space-y-3">
-                        <input type="text" placeholder="Institution" value={newEducation.institution} onChange={e => setNewEducation({...newEducation, institution: e.target.value})} required className="w-full border border-gray-300 rounded-md p-2"/>
-                        <input type="text" placeholder="Degree (e.g., B.S. in Computer Science)" value={newEducation.degree} onChange={e => setNewEducation({...newEducation, degree: e.target.value})} required className="w-full border border-gray-300 rounded-md p-2"/>
-                        <input type="text" placeholder="Field of Study" value={newEducation.fieldOfStudy} onChange={e => setNewEducation({...newEducation, fieldOfStudy: e.target.value})} required className="w-full border border-gray-300 rounded-md p-2"/>
-                        <input type="text" placeholder="Graduation Year" value={newEducation.graduationYear} onChange={e => setNewEducation({...newEducation, graduationYear: e.target.value})} required className="w-full border border-gray-300 rounded-md p-2"/>
+                        <input 
+                            type="text" 
+                            placeholder="Institution" 
+                            value={newEducation.institution} 
+                            onChange={e => setNewEducation({...newEducation, institution: e.target.value})} 
+                            required 
+                            className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 placeholder-gray-500 focus:ring-primary focus:border-primary"
+                        />
+                        <input 
+                            type="text" 
+                            placeholder="Degree (e.g., B.S. in Computer Science)" 
+                            value={newEducation.degree} 
+                            onChange={e => setNewEducation({...newEducation, degree: e.target.value})} 
+                            required 
+                            className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 placeholder-gray-500 focus:ring-primary focus:border-primary"
+                        />
+                        <input 
+                            type="text" 
+                            placeholder="Field of Study" 
+                            value={newEducation.fieldOfStudy} 
+                            onChange={e => setNewEducation({...newEducation, fieldOfStudy: e.target.value})} 
+                            required 
+                            className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 placeholder-gray-500 focus:ring-primary focus:border-primary"
+                        />
+                        <input 
+                            type="text" 
+                            placeholder="Graduation Year" 
+                            value={newEducation.graduationYear} 
+                            onChange={e => setNewEducation({...newEducation, graduationYear: e.target.value})} 
+                            required 
+                            className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 placeholder-gray-500 focus:ring-primary focus:border-primary"
+                        />
                         <div className="flex gap-2 justify-end">
                             <button type="button" onClick={() => setIsAddingEducation(false)} className="px-3 py-1 text-sm bg-gray-200 rounded-md">Cancel</button>
                             <button type="submit" className="px-3 py-1 text-sm bg-primary text-white rounded-md">Add</button>
