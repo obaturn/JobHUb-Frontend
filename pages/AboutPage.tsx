@@ -53,24 +53,24 @@ const AboutPage: React.FC<AboutPageProps> = ({ onNavigate }) => {
 
   const values = [
     {
-      icon: "🎯",
+      icon: null,
       title: "Mission-Driven",
       description: "We believe everyone deserves meaningful work that aligns with their values and aspirations."
     },
     {
-      icon: "🤝",
+      icon: null,
       title: "Trust & Transparency",
       description: "Building authentic connections between candidates and companies through honest communication."
     },
     {
-      icon: "🚀",
+      icon: null,
       title: "Innovation First",
-      description: "Leveraging cutting-edge technology to revolutionize how people find and hire talent."
+      description: "Using modern technology to improve how people find and hire talent."
     },
     {
-      icon: "🌍",
+      icon: null,
       title: "Global Impact",
-      description: "Creating opportunities that transcend borders and connect talent worldwide."
+      description: "Creating opportunities that connect talent worldwide."
     }
   ];
 
@@ -102,8 +102,7 @@ const AboutPage: React.FC<AboutPageProps> = ({ onNavigate }) => {
               variants={fadeInUp}
               className="text-xl md:text-2xl text-blue-100 mb-8 leading-relaxed"
             >
-              We're on a mission to transform how the world works by connecting 
-              exceptional talent with extraordinary opportunities.
+              Connecting talented people with great opportunities.
             </motion.p>
             <motion.div
               variants={fadeInUp}
@@ -167,18 +166,17 @@ const AboutPage: React.FC<AboutPageProps> = ({ onNavigate }) => {
               </h2>
               <div className="space-y-6 text-lg text-gray-600 leading-relaxed">
                 <p>
-                  Founded in 2020, JobHub emerged from a simple observation: the traditional 
-                  job search process was broken. Both candidates and employers were frustrated 
-                  with outdated platforms that didn't understand their real needs.
+                  Founded in 2020, JobHub was created to solve a common problem: the traditional 
+                  job search process wasn't working well for anyone. Both candidates and employers 
+                  were frustrated with outdated platforms.
                 </p>
                 <p>
-                  We set out to build something different—a platform that uses AI to create 
-                  meaningful connections, provides transparent insights, and empowers both 
-                  job seekers and employers to make better decisions.
+                  We built a platform that creates better connections, provides clear insights, 
+                  and helps both job seekers and employers make informed decisions.
                 </p>
                 <p>
-                  Today, we're proud to serve millions of users worldwide, helping them 
-                  discover opportunities that truly align with their goals and values.
+                  Today, we serve millions of users worldwide, helping them discover 
+                  opportunities that align with their goals.
                 </p>
               </div>
             </motion.div>
@@ -195,9 +193,6 @@ const AboutPage: React.FC<AboutPageProps> = ({ onNavigate }) => {
                   alt="Team collaboration"
                   className="w-full h-full object-cover"
                 />
-              </div>
-              <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-yellow-400 rounded-2xl flex items-center justify-center shadow-xl">
-                <span className="text-4xl">🚀</span>
               </div>
             </motion.div>
           </div>
@@ -218,7 +213,7 @@ const AboutPage: React.FC<AboutPageProps> = ({ onNavigate }) => {
               Our Values
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              These core principles guide everything we do and shape the culture we're building.
+              These principles guide everything we do and shape our culture.
             </p>
           </motion.div>
 
@@ -233,9 +228,8 @@ const AboutPage: React.FC<AboutPageProps> = ({ onNavigate }) => {
               <motion.div
                 key={value.title}
                 variants={fadeInUp}
-                className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 text-center"
+                className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300"
               >
-                <div className="text-4xl mb-4">{value.icon}</div>
                 <h3 className="text-xl font-bold text-gray-900 mb-4">{value.title}</h3>
                 <p className="text-gray-600 leading-relaxed">{value.description}</p>
               </motion.div>
@@ -258,8 +252,7 @@ const AboutPage: React.FC<AboutPageProps> = ({ onNavigate }) => {
               Meet Our Team
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              We're a diverse group of passionate individuals united by our mission to 
-              revolutionize the future of work.
+              We're a diverse group of people working to improve the future of work.
             </p>
           </motion.div>
 
@@ -312,8 +305,8 @@ const AboutPage: React.FC<AboutPageProps> = ({ onNavigate }) => {
               variants={fadeInUp}
               className="text-xl mb-8 max-w-2xl mx-auto opacity-90"
             >
-              Join millions of professionals who trust JobHub to find their next opportunity 
-              or hire exceptional talent.
+              Join millions of professionals who use JobHub to find their next opportunity 
+              or hire great talent.
             </motion.p>
             <motion.div
               variants={fadeInUp}

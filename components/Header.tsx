@@ -53,12 +53,46 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, isAuthenticated, onLogout, 
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  const navLinks = [
-      { name: 'Home', page: 'landing' as Page },
+  // Role-based navigation links
+  const getNavLinks = () => {
+    const baseLinks = [
+      { name: 'Home', page: 'landing' as Page }
+    ];
+    
+    // Role-specific links
+    if (userType === 'job_seeker') {
+      return [
+        ...baseLinks,
+        { name: 'Find Jobs', page: 'job_search' as Page },
+        { name: 'Companies', page: 'companies_directory' as Page },
+        { name: 'About', page: 'about' as Page },
+      ];
+    } else if (userType === 'employer') {
+      return [
+        ...baseLinks,
+        { name: 'Post Job', page: 'create_job' as Page },
+        { name: 'Find Talent', page: 'job_search' as Page },
+        { name: 'About', page: 'about' as Page },
+      ];
+    } else if (userType === 'admin') {
+      return [
+        ...baseLinks,
+        { name: 'Moderate', page: 'admin_dashboard' as Page },
+        { name: 'Analytics', page: 'admin_dashboard' as Page },
+        { name: 'About', page: 'about' as Page },
+      ];
+    }
+    
+    // Not logged in - default navigation
+    return [
+      ...baseLinks,
       { name: 'Find Jobs', page: 'job_search' as Page },
-      { name: 'Companies', page: 'companies_directory' as Page },
+      { name: 'For Employers', page: 'for_employers' as Page },
       { name: 'About', page: 'about' as Page },
-  ];
+    ];
+  };
+
+  const navLinks = getNavLinks();
 
   const handleDashboardClick = () => {
     if (userType === 'employer') {
@@ -73,7 +107,24 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, isAuthenticated, onLogout, 
   const handleNotificationsToggle = (e: React.MouseEvent) => {
       e.stopPropagation();
       setIsNotificationsOpen(prev => !prev);
-  }
+  };
+
+  // Close notifications panel when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (isNotificationsOpen) {
+        setIsNotificationsOpen(false);
+      }
+    };
+    
+    if (isNotificationsOpen) {
+      document.addEventListener('click', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [isNotificationsOpen]);
 
   // Defensive display name (some user objects may be missing `name` at runtime)
   const displayName = user ? ((user.name || user.email || 'User').split(' ')[0]) : 'User';
@@ -100,36 +151,68 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, isAuthenticated, onLogout, 
               <div className="flex items-center space-x-5">
                 <button onClick={() => onNavigate('messaging')} className="relative text-gray-500 hover:text-primary transition-colors">
                   <EnvelopeIcon className="w-6 h-6" />
+                  {/* TODO: Add unread message count when messaging service is ready */}
                 </button>
                 
-                {/* Smart Notification System */}
-                <SmartNotificationSystem
-                  user={user}
-                  onViewJobDetails={(job) => {
-                    // Store job and navigate to job details
-                    localStorage.setItem('selectedJob', JSON.stringify(job));
-                    onNavigate('job_details');
-                  }}
-                  onViewCompanyProfile={(companyId) => {
-                    // Store company ID and navigate to company profile
-                    localStorage.setItem('selectedCompanyId', companyId);
-                    onNavigate('company_profile');
-                  }}
-                  onApplyJob={(job) => {
-                    // Handle job application
-                    console.log('Apply to job:', job.title);
-                  }}
-                  onFollowCompany={(companyId) => {
-                    // Handle company follow
-                    console.log('Follow company:', companyId);
-                  }}
-                />
+                {/* Smart Notification System - Only for Job Seekers */}
+                {userType === 'job_seeker' && (
+                  <SmartNotificationSystem
+                    user={user}
+                    onViewJobDetails={(job) => {
+                      localStorage.setItem('selectedJob', JSON.stringify(job));
+                      onNavigate('job_details');
+                    }}
+                    onViewCompanyProfile={(companyId) => {
+                      localStorage.setItem('selectedCompanyId', companyId);
+                      onNavigate('company_profile');
+                    }}
+                    onApplyJob={(job) => {
+                      console.log('Apply to job:', job.title);
+                    }}
+                    onFollowCompany={(companyId) => {
+                      console.log('Follow company:', companyId);
+                    }}
+                  />
+                )}
+
+                {/* Regular Notifications for Employers and Admins */}
+                {(userType === 'employer' || userType === 'admin') && (
+                  <div className="relative">
+                    <button 
+                      onClick={handleNotificationsToggle} 
+                      className="relative text-gray-500 hover:text-primary transition-colors"
+                    >
+                      <BellIcon className="w-6 h-6" />
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+                    </button>
+                    
+                    {/* Notification Panel */}
+                    {isNotificationsOpen && (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <NotificationPanel
+                          notifications={notifications}
+                          onMarkAllRead={onMarkAllRead}
+                          onClose={() => setIsNotificationsOpen(false)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="h-8 w-px bg-gray-200" />
 
                  <button onClick={handleDashboardClick} className="flex items-center space-x-2 group">
                    <img src={user.avatar} alt="User avatar" className="w-8 h-8 rounded-full border-2 border-transparent group-hover:border-primary transition-colors"/>
-                   <span className="font-medium text-gray-600 group-hover:text-primary">{displayName}</span>
+                   <div className="flex flex-col items-start">
+                     <span className="font-medium text-gray-600 group-hover:text-primary text-sm leading-tight">{displayName}</span>
+                     <span className="text-xs text-gray-500 capitalize leading-tight">
+                       {userType === 'job_seeker' ? 'Job Seeker' : userType === 'employer' ? 'Employer' : userType === 'admin' ? 'Admin' : 'User'}
+                     </span>
+                   </div>
                  </button>
                 <button
                   onClick={onLogout}

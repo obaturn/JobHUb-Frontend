@@ -231,9 +231,10 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
                     <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-left">
                         <h3 className="font-semibold text-blue-900 mb-2">Next steps:</h3>
                         <ol className="text-sm text-blue-800 space-y-2 list-decimal list-inside">
-                            <li>Check your email inbox for a verification link</li>
-                            <li>Click the link to verify your email address</li>
-                            <li>Return here and login with your credentials</li>
+                            <li>Open your email inbox (click button below)</li>
+                            <li>Look for email from JobHub (check spam folder if not found)</li>
+                            <li>Click the "Verify Email" button in the email</li>
+                            <li>You'll be automatically redirected to login</li>
                         </ol>
                     </div>
 
@@ -280,10 +281,36 @@ const SignupPage: React.FC<SignupPageProps> = ({ onNavigate, onLoginSuccess }) =
                     {/* Buttons */}
                     <div className="space-y-3 pt-4">
                         <button
-                            onClick={() => onNavigate('login')}
-                            className="w-full px-6 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-semibold transition-colors"
+                            onClick={() => {
+                                // Smart email client detection
+                                const emailDomain = registeredEmail.split('@')[1]?.toLowerCase();
+                                let emailUrl = '';
+                                
+                                if (emailDomain?.includes('gmail')) {
+                                    emailUrl = 'https://mail.google.com';
+                                } else if (emailDomain?.includes('outlook') || emailDomain?.includes('hotmail')) {
+                                    emailUrl = 'https://outlook.live.com';
+                                } else if (emailDomain?.includes('yahoo')) {
+                                    emailUrl = 'https://mail.yahoo.com';
+                                } else {
+                                    // Generic mailto for other providers
+                                    emailUrl = `mailto:${registeredEmail}`;
+                                }
+                                
+                                window.open(emailUrl, '_blank');
+                            }}
+                            className="w-full px-6 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-semibold transition-colors flex items-center justify-center gap-2"
                         >
-                            Go to Login
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            Open My Email
+                        </button>
+                        <button
+                            onClick={() => onNavigate('login')}
+                            className="w-full px-6 py-3 border border-gray-300 hover:border-gray-400 text-gray-700 rounded-xl font-semibold transition-colors text-sm"
+                        >
+                            I've already verified, take me to login
                         </button>
                         <button
                             onClick={() => {

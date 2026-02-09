@@ -144,28 +144,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
 
       console.log('✅ [AuthStore] Signup response received:', response);
+      console.log('📧 [AuthStore] Email verification required - NOT storing tokens yet');
 
-      // Ensure the user object has a proper name field
-      const user = {
-        ...response.user,
-        name: response.user.name || `${userData.firstName} ${userData.lastName}`.trim()
-      };
-
-      console.log('🔧 [AuthStore] Enhanced user object:', user);
-
-      // Store tokens
-      localStorage.setItem('accessToken', response.accessToken);
-      localStorage.setItem('refreshToken', response.refreshToken);
-      localStorage.setItem('user', JSON.stringify(user));
-
+      // ✅ DON'T store tokens or set authenticated
+      // User must verify email first before they can login
       set({
-        user: user,
-        token: response.accessToken,
-        isAuthenticated: true,
         loading: false,
+        error: null,
+        // Keep user as null until they verify and login
+        user: null,
+        token: null,
+        isAuthenticated: false,
       });
       
-      console.log('✅ [AuthStore] Signup completed successfully');
+      console.log('✅ [AuthStore] Signup completed - awaiting email verification');
+      
+      // Return email for verification screen
+      return { success: true, email: userData.email };
     } catch (error) {
       console.error('❌ [AuthStore] Signup error:', error);
       const message = error instanceof Error ? error.message : 'Signup failed';

@@ -1,61 +1,93 @@
 /**
- * Token Debug Utilities
- * Helper functions for debugging token-related issues
+ * JWT Token Debug Utility
  */
 
-/**
- * Check and log the current state of tokens in localStorage
- */
-export const debugTokens = (): void => {
-  console.group('🔍 [TokenDebug] Current Token State');
+export const debugJWTToken = () => {
+  const token = localStorage.getItem('accessToken');
   
-  const accessToken = localStorage.getItem('accessToken');
-  const refreshToken = localStorage.getItem('refreshToken');
-  const user = localStorage.getItem('user');
+  console.log('🔐 [JWT Debug] Starting token analysis...');
   
-  console.log('Access Token:', accessToken ? `${accessToken.substring(0, 20)}...` : accessToken);
-  console.log('Refresh Token:', refreshToken ? `${refreshToken.substring(0, 20)}...` : refreshToken);
-  console.log('User Data:', user);
-  
-  // Check for common issues
-  const issues: string[] = [];
-  
-  if (accessToken === 'undefined') issues.push('Access token is string "undefined"');
-  if (refreshToken === 'undefined') issues.push('Refresh token is string "undefined"');
-  if (user === 'undefined') issues.push('User data is string "undefined"');
-  if (accessToken === 'null') issues.push('Access token is string "null"');
-  if (refreshToken === 'null') issues.push('Refresh token is string "null"');
-  if (user === 'null') issues.push('User data is string "null"');
-  
-  if (issues.length > 0) {
-    console.warn('⚠️ Issues found:', issues);
-  } else {
-    console.log('✅ No obvious token issues detected');
+  if (!token) {
+    console.error('❌ [JWT Debug] No token found in localStorage');
+    return;
   }
   
-  console.groupEnd();
+  console.log('✅ [JWT Debug] Token found');
+  console.log('📏 [JWT Debug] Token length:', token.length);
+  console.log('🔍 [JWT Debug] Token preview:', token.substring(0, 50) + '...');
+  
+  // Try to decode JWT (basic parsing, not verification)
+  try {
+    const parts = token.split('.');
+    console.log('🧩 [JWT Debug] Token parts:', parts.length);
+    
+    if (parts.length === 3) {
+      // Decode header
+      const header = JSON.parse(atob(parts[0]));
+      console.log('📋 [JWT Debug] Header:', header);
+      
+      // Decode payload
+      const payload = JSON.parse(atob(parts[1]));
+      console.log('📦 [JWT Debug] Payload:', payload);
+      
+      // Check expiration
+      if (payload.exp) {
+        const expDate = new Date(payload.exp * 1000);
+        const now = new Date();
+        console.log('⏰ [JWT Debug] Expires at:', expDate);
+        console.log('⏰ [JWT Debug] Current time:', now);
+        console.log('✅ [JWT Debug] Token valid:', expDate > now);
+      }
+      
+      // Check issuer, audience, etc.
+      console.log('🏢 [JWT Debug] Issuer:', payload.iss);
+      console.log('👤 [JWT Debug] Subject:', payload.sub);
+      console.log('🎯 [JWT Debug] Audience:', payload.aud);
+      
+    } else {
+      console.error('❌ [JWT Debug] Invalid JWT format - should have 3 parts');
+    }
+    
+  } catch (error) {
+    console.error('❌ [JWT Debug] Failed to decode token:', error);
+  }
+  
+  console.log('🔐 [JWT Debug] Token analysis completed');
 };
 
-/**
- * Clear all tokens and user data from localStorage
- */
-export const clearAllTokens = (): void => {
-  console.log('🧹 [TokenDebug] Clearing all tokens and user data');
+// Export with the name App.tsx expects
+export const debugTokens = debugJWTToken;
+
+// Clear all tokens utility
+export const clearAllTokens = () => {
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
+  console.log('🧹 [JWT Debug] All tokens cleared');
 };
 
-/**
- * Check if a token value is valid (not null, undefined, or string versions)
- */
-export const isValidToken = (token: string | null): boolean => {
-  return token !== null && token !== 'undefined' && token !== 'null' && token.trim() !== '';
+// Check if token is valid (basic check)
+export const isValidToken = (): boolean => {
+  const token = localStorage.getItem('accessToken');
+  if (!token) return false;
+  
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+    
+    const payload = JSON.parse(atob(parts[1]));
+    if (payload.exp) {
+      const expDate = new Date(payload.exp * 1000);
+      const now = new Date();
+      return expDate > now;
+    }
+    
+    return true;
+  } catch (error) {
+    return false;
+  }
 };
 
-// Make debug functions available globally in development
-if (process.env.NODE_ENV === 'development') {
-  (window as any).debugTokens = debugTokens;
-  (window as any).clearAllTokens = clearAllTokens;
-  console.log('🔧 [TokenDebug] Debug functions available: window.debugTokens(), window.clearAllTokens()');
-}
+// Add to window for easy access
+(window as any).debugJWT = debugJWTToken;
+(window as any).debugTokens = debugTokens;

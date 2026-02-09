@@ -3,7 +3,7 @@
  * Handles 401 errors by automatically refreshing tokens and retrying requests
  */
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081/api/v1';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8084/api/v1';
 
 interface RequestConfig extends RequestInit {
   url: string;

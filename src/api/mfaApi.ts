@@ -3,6 +3,8 @@
  * Connects to your Spring Boot backend MFA endpoints
  */
 
+import { httpGet, httpPost } from './httpClient';
+
 export interface MFASetupResponse {
   secret: string;
   qrCode: string;
@@ -27,47 +29,12 @@ export interface MFAVerifyLoginResponse {
   user: any;
 }
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081/api/v1';
-
-// Helper function to get auth token
-const getAuthToken = (): string => {
-  const token = localStorage.getItem('accessToken');
-  if (!token) {
-    throw new Error('No authentication token found');
-  }
-  return token;
-};
-
-// Helper function to make authenticated requests
-const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) => {
-  const token = getAuthToken();
-  const response = await fetch(`${API_BASE_URL}${url}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      ...options.headers,
-    },
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`API Error: ${response.status} - ${errorText}`);
-  }
-
-  return response;
-};
-
 /**
  * Setup MFA - calls your backend /api/v1/auth/mfa/setup
  */
 export const setupMFA = async (): Promise<MFASetupResponse> => {
   try {
-    const response = await makeAuthenticatedRequest('/auth/mfa/setup', {
-      method: 'POST',
-    });
-
-    const data = await response.json();
+    const data = await httpPost<any>('/auth/mfa/setup', {});
     
     return {
       secret: data.secret,
@@ -94,10 +61,7 @@ export const verifyMFASetup = async (
   _secret: string
 ): Promise<MFAVerifyResponse> => {
   try {
-    await makeAuthenticatedRequest('/auth/mfa/enable', {
-      method: 'POST',
-      body: JSON.stringify({ code }),
-    });
+    await httpPost<void>('/auth/mfa/enable', { code });
 
     // Generate mock backup codes (in real implementation, backend should provide these)
     const backupCodes = Array.from({ length: 10 }, () =>
@@ -123,22 +87,10 @@ export const verifyTOTPForLogin = async (
   totpCode: string
 ): Promise<MFAVerifyLoginResponse> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/login/mfa`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ 
-        mfaToken, 
-        code: totpCode 
-      }),
+    const data = await httpPost<any>('/auth/login/mfa', { 
+      mfaToken, 
+      code: totpCode 
     });
-
-    if (!response.ok) {
-      throw new Error('Invalid MFA code');
-    }
-
-    const data = await response.json();
     
     // Store the tokens
     if (data.accessToken) {
@@ -160,8 +112,7 @@ export const verifyTOTPForLogin = async (
  */
 export const getMFAStatus = async (): Promise<MFAStatusResponse> => {
   try {
-    const response = await makeAuthenticatedRequest('/auth/profile');
-    const profile = await response.json();
+    const profile = await httpGet<any>('/auth/profile');
     
     // Assuming your UserProfile or User entity has mfaEnabled field
     return { 
@@ -189,10 +140,7 @@ export const disableMFA = async (
   try {
     // Note: You'll need to add this endpoint to your backend
     // For now, this is a placeholder implementation
-    await makeAuthenticatedRequest('/auth/mfa/disable', {
-      method: 'POST',
-      body: JSON.stringify({ password }),
-    });
+    await httpPost<void>('/auth/mfa/disable', { password });
 
     return { 
       mfaEnabled: false, 

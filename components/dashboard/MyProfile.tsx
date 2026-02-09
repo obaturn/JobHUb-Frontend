@@ -12,6 +12,8 @@ import { getProfile, updateProfile, ProfileUpdateRequest } from '../../src/api/p
 import { getSkills, createSkill, deleteSkill, Skill, SkillRequest } from '../../src/api/skillsApi';
 import { getExperiences, createExperience, updateExperience, deleteExperience, Experience, ExperienceRequest } from '../../src/api/experienceApi';
 import { getEducations, createEducation, updateEducation, deleteEducation, Education, EducationRequest } from '../../src/api/educationApi';
+import { debugProfileEndpoints } from '../../src/utils/debugProfile';
+import { debugJWTToken } from '../../src/utils/tokenDebug';
 
 interface MyProfileProps {
   initialUser: User;
@@ -53,15 +55,24 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
             setLoading(true);
             setError(null);
             
-            // Load all profile data in parallel
-            const [profileData, skillsData, experiencesData, educationsData] = await Promise.all([
-                getProfile(),
+            // Load only the endpoints that exist (skip profile for now)
+            const [skillsData, experiencesData, educationsData] = await Promise.all([
                 getSkills(),
                 getExperiences(),
                 getEducations()
             ]);
             
-            setProfile(profileData);
+            // Set mock profile data temporarily
+            setProfile({
+                id: user.id,
+                userId: user.id,
+                firstName: user.name?.split(' ')[0] || 'User',
+                lastName: user.name?.split(' ').slice(1).join(' ') || 'Name',
+                bio: user.about || '',
+                location: user.location || '',
+                avatarUrl: user.avatar || ''
+            });
+            
             setSkills(skillsData);
             setExperiences(experiencesData);
             setEducations(educationsData);
@@ -359,6 +370,27 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
 
     return (
         <div className="space-y-8">
+            {/* Debug Button - Remove after debugging */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex gap-4">
+                    <button 
+                        onClick={debugProfileEndpoints}
+                        className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600"
+                    >
+                        🔍 Debug Profile Endpoints
+                    </button>
+                    <button 
+                        onClick={debugJWTToken}
+                        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                    >
+                        🔐 Debug JWT Token
+                    </button>
+                </div>
+                <p className="text-sm text-yellow-700 mt-2">
+                    Click to test profile API endpoints and JWT token. Check browser console for results.
+                </p>
+            </div>
+
             {/* Error Message */}
             {error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">

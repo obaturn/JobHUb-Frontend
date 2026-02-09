@@ -21,7 +21,7 @@
     
     <div class="section info">
         <h3>Backend Status</h3>
-        <p>Testing connection to: <code>http://localhost:8081/api/v1</code></p>
+        <p>Testing connection to: <code>http://localhost:8084/api/v1</code></p>
         <button onclick="testBackendConnection()">Test Backend Connection</button>
         <div id="backend-status"></div>
     </div>
@@ -50,7 +50,7 @@
     </div>
 
     <script>
-        const API_BASE = 'http://localhost:8081/api/v1';
+        const API_BASE = 'http://localhost:8084/api/v1';
 
         async function testBackendConnection() {
             const statusDiv = document.getElementById('backend-status');

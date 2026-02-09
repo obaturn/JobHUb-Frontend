@@ -297,7 +297,7 @@ const Settings: React.FC<SettingsProps> = ({ user }) => {
                 </button>
                 
                 <div className="mt-4 text-xs text-gray-500">
-                  <p>Backend URL: {process.env.REACT_APP_API_URL || 'http://localhost:8081/api/v1'}</p>
+                  <p>Backend URL: {process.env.REACT_APP_API_URL || 'http://localhost:8084/api/v1'}</p>
                   <p>Token: {localStorage.getItem('accessToken') ? 'Present' : 'Missing'}</p>
                 </div>
               </div>

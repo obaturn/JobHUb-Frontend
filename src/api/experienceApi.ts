@@ -3,6 +3,8 @@
  * Connects to your Spring Boot backend /api/v1/auth/profile/experience endpoints
  */
 
+import { httpGet, httpPost, httpPut, httpDelete } from './httpClient';
+
 export interface ExperienceRequest {
   companyName: string;
   jobTitle: string;
@@ -31,50 +33,12 @@ export interface Experience {
   updatedAt: string;
 }
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081/api/v1';
-
-// Helper function to get auth token
-const getAuthToken = (): string => {
-  const token = localStorage.getItem('accessToken');
-  if (!token) {
-    throw new Error('No authentication token found');
-  }
-  return token;
-};
-
-// Helper function to make authenticated requests
-const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) => {
-  const token = getAuthToken();
-  
-  try {
-    const response = await fetch(`${API_BASE_URL}${url}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        ...options.headers,
-      },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API Error: ${response.status} - ${errorText}`);
-    }
-
-    return response;
-  } catch (error) {
-    console.error('Experience API Error:', error);
-    throw error;
-  }
-};
-
 /**
- * Get all user experiences
+ * Get all user experiences - calls /api/v1/profile/experience (gateway rewrites to /api/v1/auth/profile/experience)
  */
 export const getExperiences = async (): Promise<Experience[]> => {
   try {
-    const response = await makeAuthenticatedRequest('/auth/profile/experience');
-    return await response.json();
+    return await httpGet<Experience[]>('/profile/experience');
   } catch (error) {
     console.error('Get Experiences Error:', error);
     throw new Error('Failed to load experiences. Please try again.');
@@ -82,15 +46,11 @@ export const getExperiences = async (): Promise<Experience[]> => {
 };
 
 /**
- * Create a new experience
+ * Create a new experience - calls /api/v1/profile/experience (gateway rewrites to /api/v1/auth/profile/experience)
  */
 export const createExperience = async (experienceData: ExperienceRequest): Promise<Experience> => {
   try {
-    const response = await makeAuthenticatedRequest('/auth/profile/experience', {
-      method: 'POST',
-      body: JSON.stringify(experienceData),
-    });
-    return await response.json();
+    return await httpPost<Experience>('/profile/experience', experienceData);
   } catch (error) {
     console.error('Create Experience Error:', error);
     throw new Error('Failed to add experience. Please try again.');
@@ -98,15 +58,11 @@ export const createExperience = async (experienceData: ExperienceRequest): Promi
 };
 
 /**
- * Update an existing experience
+ * Update an existing experience - calls /api/v1/profile/experience/{id} (gateway rewrites to /api/v1/auth/profile/experience/{id})
  */
 export const updateExperience = async (experienceId: string, experienceData: ExperienceRequest): Promise<Experience> => {
   try {
-    const response = await makeAuthenticatedRequest(`/auth/profile/experience/${experienceId}`, {
-      method: 'PUT',
-      body: JSON.stringify(experienceData),
-    });
-    return await response.json();
+    return await httpPut<Experience>(`/profile/experience/${experienceId}`, experienceData);
   } catch (error) {
     console.error('Update Experience Error:', error);
     throw new Error('Failed to update experience. Please try again.');
@@ -114,13 +70,11 @@ export const updateExperience = async (experienceId: string, experienceData: Exp
 };
 
 /**
- * Delete an experience
+ * Delete an experience - calls /api/v1/profile/experience/{id} (gateway rewrites to /api/v1/auth/profile/experience/{id})
  */
 export const deleteExperience = async (experienceId: string): Promise<void> => {
   try {
-    await makeAuthenticatedRequest(`/auth/profile/experience/${experienceId}`, {
-      method: 'DELETE',
-    });
+    await httpDelete<void>(`/profile/experience/${experienceId}`);
   } catch (error) {
     console.error('Delete Experience Error:', error);
     throw new Error('Failed to delete experience. Please try again.');

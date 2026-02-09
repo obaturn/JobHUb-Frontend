@@ -3,6 +3,8 @@
  * Connects to your Spring Boot backend /api/v1/auth/profile/education endpoints
  */
 
+import { httpGet, httpPost, httpPut, httpDelete } from './httpClient';
+
 export interface EducationRequest {
   institutionName: string;
   degree: string;
@@ -33,50 +35,12 @@ export interface Education {
   updatedAt: string;
 }
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081/api/v1';
-
-// Helper function to get auth token
-const getAuthToken = (): string => {
-  const token = localStorage.getItem('accessToken');
-  if (!token) {
-    throw new Error('No authentication token found');
-  }
-  return token;
-};
-
-// Helper function to make authenticated requests
-const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) => {
-  const token = getAuthToken();
-  
-  try {
-    const response = await fetch(`${API_BASE_URL}${url}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        ...options.headers,
-      },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API Error: ${response.status} - ${errorText}`);
-    }
-
-    return response;
-  } catch (error) {
-    console.error('Education API Error:', error);
-    throw error;
-  }
-};
-
 /**
- * Get all user education records
+ * Get all user education records - calls /api/v1/profile/education (gateway rewrites to /api/v1/auth/profile/education)
  */
 export const getEducations = async (): Promise<Education[]> => {
   try {
-    const response = await makeAuthenticatedRequest('/auth/profile/education');
-    return await response.json();
+    return await httpGet<Education[]>('/profile/education');
   } catch (error) {
     console.error('Get Educations Error:', error);
     throw new Error('Failed to load education records. Please try again.');
@@ -84,15 +48,11 @@ export const getEducations = async (): Promise<Education[]> => {
 };
 
 /**
- * Create a new education record
+ * Create a new education record - calls /api/v1/profile/education (gateway rewrites to /api/v1/auth/profile/education)
  */
 export const createEducation = async (educationData: EducationRequest): Promise<Education> => {
   try {
-    const response = await makeAuthenticatedRequest('/auth/profile/education', {
-      method: 'POST',
-      body: JSON.stringify(educationData),
-    });
-    return await response.json();
+    return await httpPost<Education>('/profile/education', educationData);
   } catch (error) {
     console.error('Create Education Error:', error);
     throw new Error('Failed to add education record. Please try again.');
@@ -100,15 +60,11 @@ export const createEducation = async (educationData: EducationRequest): Promise<
 };
 
 /**
- * Update an existing education record
+ * Update an existing education record - calls /api/v1/profile/education/{id} (gateway rewrites to /api/v1/auth/profile/education/{id})
  */
 export const updateEducation = async (educationId: string, educationData: EducationRequest): Promise<Education> => {
   try {
-    const response = await makeAuthenticatedRequest(`/auth/profile/education/${educationId}`, {
-      method: 'PUT',
-      body: JSON.stringify(educationData),
-    });
-    return await response.json();
+    return await httpPut<Education>(`/profile/education/${educationId}`, educationData);
   } catch (error) {
     console.error('Update Education Error:', error);
     throw new Error('Failed to update education record. Please try again.');
@@ -116,13 +72,11 @@ export const updateEducation = async (educationId: string, educationData: Educat
 };
 
 /**
- * Delete an education record
+ * Delete an education record - calls /api/v1/profile/education/{id} (gateway rewrites to /api/v1/auth/profile/education/{id})
  */
 export const deleteEducation = async (educationId: string): Promise<void> => {
   try {
-    await makeAuthenticatedRequest(`/auth/profile/education/${educationId}`, {
-      method: 'DELETE',
-    });
+    await httpDelete<void>(`/profile/education/${educationId}`);
   } catch (error) {
     console.error('Delete Education Error:', error);
     throw new Error('Failed to delete education record. Please try again.');

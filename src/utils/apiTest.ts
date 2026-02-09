@@ -3,7 +3,7 @@
  * Use this to test if your backend is reachable
  */
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081/api/v1';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8084/api/v1';
 
 export const testApiConnection = async () => {
   console.log('Testing API connection to:', API_BASE_URL);

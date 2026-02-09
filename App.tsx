@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from './stores/useAuthStore';
+import { useSharedJobsStore } from './stores/useSharedJobsStore';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import FeaturedJobs from './components/FeaturedJobs';
@@ -18,6 +19,8 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import JobSearchPage from './pages/JobSearchPage';
 import JobDetailsPage from './pages/JobDetailsPage';
 import AboutPage from './pages/AboutPage';
+import ForEmployersPage from './pages/ForEmployersPage';
+import ForJobSeekersPage from './pages/ForJobSeekersPage';
 import { lazy, Suspense } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -44,6 +47,7 @@ import { MOCK_USER, INITIAL_APPLICATIONS, INITIAL_SAVED_JOBS, MOCK_EMPLOYER, MOC
 import WhyChooseUs from './components/WhyChooseUs';
 import HowItWorks from './components/HowItWorks';
 import VideoHighlights from './components/VideoHighlights';
+import ChooseYourPath from './components/ChooseYourPath';
 
 const App: React.FC = () => {
   // Auth store
@@ -100,7 +104,9 @@ const App: React.FC = () => {
       'employer_dashboard': '/dashboard/employer',
       'admin_dashboard': '/dashboard/admin',
       'create_job': '/create-job',
-      'about': '/about'
+      'about': '/about',
+      'for_employers': '/for-employers',
+      'for_job_seekers': '/for-job-seekers'
     };
     
     const newUrl = urlMap[page] || '/';
@@ -482,9 +488,42 @@ const App: React.FC = () => {
     }
   };
 
-  const handlePublishJob = (newJobData: Partial<Job>) => {
+  const handlePublishJob = async (newJobData: Partial<Job>) => {
     if (!user || user.userType !== 'employer') return;
-    const newJob: Job = {
+    
+    try {
+      // Prepare job data for backend
+      const jobPayload = {
+        ...newJobData,
+        companyId: user.companyId || 'innovate-inc',
+        employerId: user.id,
+        company: user.experience[0]?.company || 'Innovate Inc.',
+        logo: user.avatar,
+        status: 'Published'
+      };
+
+      console.log('📤 [App] Posting job to backend:', jobPayload.title);
+
+      // Post job to backend API using httpClient for consistency
+      const { httpPost } = await import('./src/api/httpClient');
+      const newJob = await httpPost('/jobs', jobPayload);
+      console.log('✅ [App] Job posted successfully:', newJob.id);
+
+      // Add to shared store (makes it available to job seekers immediately!)
+      const { addJob } = useSharedJobsStore.getState();
+      addJob(newJob);
+
+      // Also add to employer's local list
+      setEmployerJobs(prev => [newJob, ...prev]);
+
+      // Show success message
+      alert('✅ Job posted successfully! Job seekers can now see it.');
+      navigate('employer_dashboard');
+    } catch (error) {
+      console.error('❌ [App] Failed to post job:', error);
+      
+      // Fallback: Create job locally if backend fails
+      const newJob: Job = {
         ...newJobData,
         id: Date.now(),
         company: user.experience[0]?.company || 'Innovate Inc.',
@@ -494,9 +533,12 @@ const App: React.FC = () => {
         status: 'Published',
         applicationsCount: 0,
         viewsCount: 0
-    } as Job;
-    setEmployerJobs(prev => [newJob, ...prev]);
-    navigate('employer_dashboard');
+      } as Job;
+      
+      setEmployerJobs(prev => [newJob, ...prev]);
+      alert('⚠️ Job created locally. Backend connection failed.');
+      navigate('employer_dashboard');
+    }
   };
 
   const handleCreatePost = (content: string) => {
@@ -671,6 +713,10 @@ const App: React.FC = () => {
         ) : <LoginPage onNavigate={navigate} onLoginSuccess={handleLogin} onEmployerLogin={handleEmployerLogin} onAdminLogin={handleAdminLogin} />;
       case 'about':
         return <AboutPage onNavigate={navigate} />;
+      case 'for_employers':
+        return <ForEmployersPage onNavigate={navigate} />;
+      case 'for_job_seekers':
+        return <ForJobSeekersPage onNavigate={navigate} />;
       case 'landing':
       default:
         return (
@@ -678,6 +724,11 @@ const App: React.FC = () => {
             <div id="hero">
               <Hero onNavigate={navigate} />
             </div>
+            <LazySection>
+              <div id="choose-path">
+                <ChooseYourPath onNavigate={navigate} />
+              </div>
+            </LazySection>
             <LazySection>
               <div id="companies">
                 <RotatingCarousel onNavigate={navigate} />

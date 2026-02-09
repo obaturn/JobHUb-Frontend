@@ -18,20 +18,27 @@ export interface ApiConfig {
   files: ServiceConfig;
 }
 
+// TEMPORARY: Testing direct connection to backend (bypassing API Gateway)
+// Change back to 8084 after testing
+const USE_DIRECT_BACKEND = false; // Set to false to use API Gateway
+
 // Default configuration for local development
 const DEFAULT_CONFIG: ApiConfig = {
   auth: {
-    baseUrl: process.env.REACT_APP_AUTH_SERVICE_URL || 'http://localhost:8081/api/v1',
+    // TESTING: Direct connection to auth service on 8081
+    baseUrl: USE_DIRECT_BACKEND 
+      ? (process.env.REACT_APP_AUTH_SERVICE_URL || 'http://localhost:8081/api/v1')
+      : (process.env.REACT_APP_AUTH_SERVICE_URL || 'http://localhost:8084/api/v1'),
     timeout: 10000,
     retries: 3
   },
   jobs: {
-    baseUrl: process.env.REACT_APP_JOBS_SERVICE_URL || 'http://localhost:8082/api/v1',
+    baseUrl: process.env.REACT_APP_JOBS_SERVICE_URL || 'http://localhost:8084/api/v1',
     timeout: 15000,
     retries: 2
   },
   messaging: {
-    baseUrl: process.env.REACT_APP_MESSAGING_SERVICE_URL || 'http://localhost:8083/api/v1',
+    baseUrl: process.env.REACT_APP_MESSAGING_SERVICE_URL || 'http://localhost:8084/api/v1',
     timeout: 10000,
     retries: 3
   },
@@ -41,12 +48,12 @@ const DEFAULT_CONFIG: ApiConfig = {
     retries: 2
   },
   analytics: {
-    baseUrl: process.env.REACT_APP_ANALYTICS_SERVICE_URL || 'http://localhost:8085/api/v1',
+    baseUrl: process.env.REACT_APP_ANALYTICS_SERVICE_URL || 'http://localhost:8084/api/v1',
     timeout: 20000,
     retries: 1
   },
   files: {
-    baseUrl: process.env.REACT_APP_FILES_SERVICE_URL || 'http://localhost:8086/api/v1',
+    baseUrl: process.env.REACT_APP_FILES_SERVICE_URL || 'http://localhost:8084/api/v1',
     timeout: 30000,
     retries: 2
   }

@@ -144,8 +144,18 @@ const EmailVerificationPage: React.FC<EmailVerificationPageProps> = ({ onNavigat
                     console.log('✅ [EmailVerificationPage] Email verified! Redirecting to login...');
                     
                     setStatus('success');
-                    setMessage(responseData?.message || 'Your email has been verified successfully! Please log in to continue.');
+                    setMessage('✅ Email verified successfully!');
                     
+                    // Show progress messages for better UX
+                    setTimeout(() => {
+                        setMessage('🔐 Preparing your account...');
+                    }, 1000);
+                    
+                    setTimeout(() => {
+                        setMessage('🚀 Redirecting to login...');
+                    }, 2000);
+                    
+                    // Redirect after 3 seconds total
                     setTimeout(() => {
                         onNavigate('login');
                     }, 3000);
@@ -170,10 +180,43 @@ const EmailVerificationPage: React.FC<EmailVerificationPageProps> = ({ onNavigat
                 {/* Status Icon */}
                 <div className="flex justify-center">
                     {status === 'loading' && (
-                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-                            <svg className="w-8 h-8 text-blue-600 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        <div className="relative w-16 h-16">
+                            {/* Spinning circle background */}
+                            <div className="absolute inset-0 bg-blue-100 rounded-full"></div>
+                            
+                            {/* Animated spinning border */}
+                            <svg className="absolute inset-0 w-16 h-16 animate-spin" viewBox="0 0 50 50">
+                                <circle
+                                    className="text-blue-200"
+                                    strokeWidth="3"
+                                    stroke="currentColor"
+                                    fill="transparent"
+                                    r="20"
+                                    cx="25"
+                                    cy="25"
+                                />
+                                <circle
+                                    className="text-blue-600"
+                                    strokeWidth="3"
+                                    stroke="currentColor"
+                                    fill="transparent"
+                                    strokeDasharray="80 200"
+                                    strokeLinecap="round"
+                                    r="20"
+                                    cx="25"
+                                    cy="25"
+                                    style={{
+                                        transformOrigin: '50% 50%',
+                                    }}
+                                />
                             </svg>
+                            
+                            {/* Shield icon in center */}
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                            </div>
                         </div>
                     )}
                     {status === 'success' && (
@@ -216,7 +259,9 @@ const EmailVerificationPage: React.FC<EmailVerificationPageProps> = ({ onNavigat
                 <div className="space-y-3 pt-4">
                     {status === 'success' && (
                         <>
-                            <p className="text-sm text-gray-600">You will be redirected to login in a few seconds...</p>
+                            <p className="text-sm text-gray-600 animate-pulse">
+                                {message.includes('Redirecting') ? 'Redirecting now...' : 'You will be redirected to login in a few seconds...'}
+                            </p>
                             <button
                                 onClick={() => onNavigate('login')}
                                 className="w-full px-6 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-semibold transition-colors"

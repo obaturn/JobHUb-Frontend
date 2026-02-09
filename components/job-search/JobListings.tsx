@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ALL_JOBS } from '../../constants';
+import React, { useState, useEffect } from 'react';
+import { useSharedJobsStore } from '../../stores/useSharedJobsStore';
 import JobCard from '../JobCard';
 import { Job } from '../../types';
 import { BellIcon } from '../icons/BellIcon';
@@ -12,16 +12,23 @@ interface JobListingsProps {
 }
 
 const JobListings: React.FC<JobListingsProps> = ({ onViewJobDetails, onViewCompanyProfile, onSaveSearch }) => {
+  const { allJobs, loading, error, fetchAllJobs } = useSharedJobsStore();
   const [showSaveSearchToast, setShowSaveSearchToast] = useState(false);
   const [sortBy, setSortBy] = useState('Most Recent');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  // Fetch jobs on component mount
+  useEffect(() => {
+    console.log('🔍 [JobListings] Fetching jobs from shared store...');
+    fetchAllJobs();
+  }, [fetchAllJobs]);
 
   const handleSaveSearchClick = () => {
     onSaveSearch();
     setShowSaveSearchToast(true);
   };
 
-  const sortedJobs = [...ALL_JOBS].sort((a, b) => {
+  const sortedJobs = [...allJobs].sort((a, b) => {
     switch (sortBy) {
       case 'Salary: High to Low':
         const aSalary = a.salary ? parseInt(a.salary.replace(/[^0-9]/g, '')) : 0;
@@ -47,18 +54,41 @@ const JobListings: React.FC<JobListingsProps> = ({ onViewJobDetails, onViewCompa
         />
       )}
 
+      {/* Loading State */}
+      {loading && (
+        <div className="bg-white p-12 rounded-xl shadow-sm border border-gray-100 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading jobs...</p>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && !loading && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+          <p className="text-red-600 font-medium">❌ {error}</p>
+          <button
+            onClick={() => fetchAllJobs()}
+            className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      )}
+
       {/* Header with stats and actions */}
-      <div className="bg-gradient-to-r from-white to-gray-50 p-6 rounded-xl shadow-sm border border-gray-100">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-          <div>
-            <h2 className="text-2xl font-bold text-neutral-dark mb-2">
-              All Jobs
-              <span className="ml-2 text-sm font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                {ALL_JOBS.length} opportunities
-              </span>
-            </h2>
-            <p className="text-gray-600">Discover your next career opportunity</p>
-          </div>
+      {!loading && !error && (
+        <>
+          <div className="bg-gradient-to-r from-white to-gray-50 p-6 rounded-xl shadow-sm border border-gray-100">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+              <div>
+                <h2 className="text-2xl font-bold text-neutral-dark mb-2">
+                  All Jobs
+                  <span className="ml-2 text-sm font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                    {allJobs.length} opportunities
+                  </span>
+                </h2>
+                <p className="text-gray-600">Discover your next career opportunity</p>
+              </div>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
             {/* View mode toggle */}
@@ -109,7 +139,7 @@ const JobListings: React.FC<JobListingsProps> = ({ onViewJobDetails, onViewCompa
             </p>
             <div className="hidden md:flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-xs text-gray-500">Updated just now</span>
+              <span className="text-xs text-gray-500">Live updates</span>
             </div>
           </div>
 
@@ -170,6 +200,8 @@ const JobListings: React.FC<JobListingsProps> = ({ onViewJobDetails, onViewCompa
           </div>
         </nav>
       </div>
+      </>
+      )}
     </div>
   );
 };
