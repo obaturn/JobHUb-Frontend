@@ -279,9 +279,9 @@ const ProfilePage: React.FC = () => {
         {/* Logout Button */}
         <div className="mt-8 pt-8 border-t border-gray-200">
           <button
-            onClick={() => {
-              logout();
-              window.location.href = '/';
+            onClick={async () => {
+              await logout();
+              // Auth store will handle navigation to login
             }}
             className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
           >

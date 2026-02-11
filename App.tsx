@@ -386,21 +386,78 @@ const App: React.FC = () => {
     navigate('company_profile');
   };
   
-  const handleApplyJob = (job: Job) => {
+  const handleApplyJob = async (job: Job, applicationData?: any) => {
     if (applications.some(app => app.job.id === job.id)) return;
-    const newApplication: Application = {
+    
+    try {
+      const { submitApplication } = await import('./src/api/applicationApi');
+      
+      // Convert jobId to number (backend expects Long, not String)
+      const jobIdNumber = typeof job.id === 'string' ? parseInt(job.id.replace(/\D/g, ''), 10) || 1 : job.id;
+      
+      const result = await submitApplication({
+        jobId: jobIdNumber,
+        resumeId: applicationData?.resumeId || resumes.find(r => r.isPrimary)?.id
+      });
+      
+      const newApplication: Application = {
+        job,
+        status: 'Applied',
+        appliedDate: result.appliedDate,
+      };
+      setApplications(prev => [newApplication, ...prev]);
+      console.log('✅ Application submitted:', result);
+      
+      // Show success notification
+      setNotifications(prev => [{
+        id: `notif-${Date.now()}`,
+        type: 'success',
+        title: 'Application Submitted!',
+        message: `Your application for ${job.title} at ${job.company} has been submitted successfully.`,
+        timestamp: 'Just now',
+        isRead: false
+      }, ...prev]);
+      
+    } catch (error) {
+      console.error('❌ Failed to apply:', error);
+      // Still add to local state as fallback
+      const newApplication: Application = {
         job,
         status: 'Applied',
         appliedDate: new Date().toISOString().split('T')[0],
-    };
-    setApplications(prev => [newApplication, ...prev]);
+      };
+      setApplications(prev => [newApplication, ...prev]);
+    }
   };
   
-  const handleToggleSaveJob = (job: Job) => {
-    if (savedJobs.some(saved => saved.id === job.id)) {
+  const handleToggleSaveJob = async (job: Job) => {
+    const isSaved = savedJobs.some(saved => saved.id === job.id);
+    
+    try {
+      const { saveJob, unsaveJob } = await import('./src/api/jobApi');
+      
+      // Convert jobId to number (backend expects Long)
+      const jobIdNumber = typeof job.id === 'string' 
+        ? parseInt(job.id.replace(/\D/g, ''), 10) || 1 
+        : job.id;
+      
+      if (isSaved) {
+        await unsaveJob(jobIdNumber.toString());
         setSavedJobs(prev => prev.filter(saved => saved.id !== job.id));
-    } else {
+        console.log('✅ Job unsaved:', job.title);
+      } else {
+        await saveJob(jobIdNumber.toString());
         setSavedJobs(prev => [job, ...prev]);
+        console.log('✅ Job saved:', job.title);
+      }
+    } catch (error) {
+      console.error('❌ Failed to toggle save:', error);
+      // Fallback to local state
+      if (isSaved) {
+        setSavedJobs(prev => prev.filter(saved => saved.id !== job.id));
+      } else {
+        setSavedJobs(prev => [job, ...prev]);
+      }
     }
   };
 
@@ -604,6 +661,9 @@ const App: React.FC = () => {
                     onLoginRedirect={() => navigate('login')}
                     onViewCompanyProfile={handleViewCompanyProfile}
                     onStartPracticeInterview={handleStartPracticeInterview}
+                    userResumes={resumes}
+                    userEmail={user?.email || ''}
+                    userPhone={user?.phone || ''}
                 />;
       case 'companies_directory':
         return <CompaniesDirectoryPage 
@@ -692,8 +752,6 @@ const App: React.FC = () => {
         return isAuthenticated && user && userType === 'employer' ? (
             <EmployerDashboardPage 
                 user={user}
-                employerJobs={employerJobs}
-                onViewJobDetails={handleViewJobDetails}
                 onNavigate={navigate}
             />
         ) : <LoginPage onNavigate={navigate} onLoginSuccess={handleLogin} onEmployerLogin={handleEmployerLogin} onAdminLogin={handleAdminLogin} />;

@@ -302,7 +302,7 @@ const UniversalDashboardPage: React.FC<UniversalDashboardPageProps> = ({
                     // In real app, this would trigger backend activity tracking
                     alert('🎉 Welcome to JobHub! You now have access to the full Job Seeker experience.');
                     // Navigate to job seeker dashboard
-                    window.location.reload(); // Temporary - would trigger role change
+                    onNavigate('job_seeker_dashboard');
                   }}
                   className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors"
                 >
@@ -343,7 +343,7 @@ const UniversalDashboardPage: React.FC<UniversalDashboardPageProps> = ({
                     // In real app, this would trigger backend activity tracking
                     alert('🎉 Welcome to JobHub! You now have access to the full Employer experience.');
                     // Navigate to employer dashboard
-                    window.location.reload(); // Temporary - would trigger role change
+                    onNavigate('employer_dashboard');
                   }}
                   className="w-full bg-green-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-green-700 transition-colors"
                 >

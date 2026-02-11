@@ -53,7 +53,7 @@ export const updateProfile = async (profileData: ProfileUpdateRequest): Promise<
 };
 
 /**
- * Upload profile avatar - calls your backend /api/v1/auth/profile/avatar
+ * Upload profile avatar - calls /api/v1/auth/profile/avatar through gateway
  */
 export const uploadAvatar = async (avatarData: { avatarUrl: string }): Promise<{ message: string }> => {
   try {

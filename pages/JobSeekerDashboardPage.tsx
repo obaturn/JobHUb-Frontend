@@ -9,6 +9,10 @@ import MyProfile from '../components/dashboard/MyProfile';
 import Settings from '../components/dashboard/Settings';
 import SavedSearches from '../components/dashboard/SavedSearches';
 import ResumeManagement from '../components/dashboard/ResumeManagement';
+import { getProfile } from '../src/api/profileApi';
+import { getSkills } from '../src/api/skillsApi';
+import { getExperiences } from '../src/api/experienceApi';
+import { getEducations } from '../src/api/educationApi';
 import { EyeIcon } from '../components/icons/EyeIcon';
 import { DocumentTextIcon } from '../components/icons/DocumentTextIcon';
 import { BookmarkIcon } from '../components/icons/BookmarkIcon';
@@ -60,7 +64,7 @@ interface JobSeekerDashboardPageProps {
 }
 
 const JobSeekerDashboardPage: React.FC<JobSeekerDashboardPageProps> = ({ 
-  user, 
+  user: initialUser, 
   applications, 
   savedJobs, 
   savedSearches, 
@@ -86,12 +90,117 @@ const JobSeekerDashboardPage: React.FC<JobSeekerDashboardPageProps> = ({
   onUnfollowCompany
 }) => {
   const [activeTab, setActiveTab] = useState<JobSeekerDashboardTab>('overview');
+  const [user, setUser] = useState(initialUser); // Make user state mutable
   const [behaviorInsights, setBehaviorInsights] = useState<BehaviorInsights | null>(null);
   const [contextMode, setContextMode] = useState<'job_seeking' | 'networking' | 'skill_building'>('job_seeking');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   // Initialize behavior tracking
   const behaviorTracker = useBehaviorTracking(user.id);
+
+  // Load profile data when profile tab is active or on mount
+  useEffect(() => {
+    if (activeTab === 'profile' || activeTab === 'overview') {
+      loadProfileData();
+    }
+  }, [activeTab]);
+
+  // Load applications and saved jobs on mount
+  useEffect(() => {
+    loadApplicationsAndSavedJobs();
+  }, []);
+
+  const loadApplicationsAndSavedJobs = async () => {
+    try {
+      const { getUserApplications } = await import('../src/api/applicationApi');
+      
+      // Load applications (job seeker's own applications)
+      const appsData = await getUserApplications(undefined, undefined, 1, 20, 'createdAt', 'desc');
+      console.log('✅ Applications loaded:', appsData.total);
+      
+      // Map backend status to frontend status
+      const mapStatus = (status: string): Application['status'] => {
+        const mapping: Record<string, Application['status']> = {
+          'APPLIED': 'Applied',
+          'RESUME_VIEWED': 'Resume Viewed',
+          'IN_REVIEW': 'In Review',
+          'SHORTLISTED': 'Shortlisted',
+          'INTERVIEW': 'Interview',
+          'OFFERED': 'Offered',
+          'REJECTED': 'Rejected',
+          'WITHDRAWN': 'Rejected'
+        };
+        return mapping[status] || 'Applied';
+      };
+      
+      // Update applications if we got data
+      if (appsData.applications && appsData.applications.length > 0) {
+        // Note: Backend should include job details in response
+        // For now, keep existing applications from props
+        console.log('Applications from backend:', appsData.applications);
+      }
+      
+      // Load saved jobs
+      const { getSavedJobs } = await import('../src/api/jobApi');
+      const savedData = await getSavedJobs();
+      console.log('✅ Saved jobs loaded:', savedData.total);
+      
+    } catch (error) {
+      console.error('❌ Failed to load applications:', error);
+      // Keep using props data as fallback
+    }
+  };
+
+  const loadProfileData = async () => {
+    try {
+      const [profileData, skillsData, experiencesData, educationsData] = await Promise.all([
+        getProfile(),
+        getSkills(),
+        getExperiences(),
+        getEducations()
+      ]);
+      
+      // Helper function to format date range
+      const formatDateRange = (startDate: string, endDate?: string, isCurrent?: boolean): string => {
+        const start = new Date(startDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        if (isCurrent) return `${start} - Present`;
+        if (endDate) {
+          const end = new Date(endDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+          return `${start} - ${end}`;
+        }
+        return start;
+      };
+      
+      // Update user state with fresh data from backend
+      setUser(prev => ({
+        ...prev,
+        name: profileData.firstName && profileData.lastName 
+          ? `${profileData.firstName} ${profileData.lastName}` 
+          : prev.name,
+        about: profileData.bio || prev.about,
+        location: profileData.location || prev.location,
+        avatar: profileData.avatarUrl || prev.avatar,
+        headline: profileData.headline || prev.headline,
+        skills: skillsData.map(skill => skill.name),
+        experience: experiencesData.map(exp => ({
+          title: exp.jobTitle,
+          company: exp.companyName,
+          period: formatDateRange(exp.startDate, exp.endDate, exp.currentPosition),
+          description: exp.description || ''
+        })),
+        education: educationsData.map(edu => ({
+          institution: edu.institutionName,
+          degree: edu.degree,
+          fieldOfStudy: edu.fieldOfStudy || '',
+          graduationYear: edu.endDate ? new Date(edu.endDate).getFullYear().toString() : ''
+        }))
+      }));
+      
+      console.log('✅ Dashboard: Profile data synced from backend');
+    } catch (error) {
+      console.error('❌ Dashboard: Failed to load profile data:', error);
+    }
+  };
 
   // Calculate profile completion percentage
   const calculateProfileCompletion = () => {

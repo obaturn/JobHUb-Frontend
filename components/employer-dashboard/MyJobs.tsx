@@ -5,8 +5,8 @@ import { PlusIcon } from '../icons/PlusIcon';
 
 interface MyJobsProps {
   jobs: Job[];
-  onViewJobDetails: (job: Job) => void;
   onNavigate: (page: Page) => void;
+  onViewApplications?: (jobId: number) => void;
 }
 
 const statusColors: { [key: string]: string } = {
@@ -15,7 +15,7 @@ const statusColors: { [key: string]: string } = {
     Draft: 'bg-yellow-100 text-yellow-800',
 };
 
-const MyJobs: React.FC<MyJobsProps> = ({ jobs, onViewJobDetails, onNavigate }) => {
+const MyJobs: React.FC<MyJobsProps> = ({ jobs, onNavigate, onViewApplications }) => {
   return (
     <div className="bg-white rounded-lg shadow-md">
       <div className="p-6 border-b flex justify-between items-center">
@@ -57,7 +57,14 @@ const MyJobs: React.FC<MyJobsProps> = ({ jobs, onViewJobDetails, onNavigate }) =
                 <td className="px-6 py-4">{job.posted}</td>
                 <td className="px-6 py-4">
                     <div className="flex items-center gap-2 text-sm">
-                        <button onClick={() => onViewJobDetails(job)} className="font-medium text-primary hover:underline">View</button>
+                        {onViewApplications && (
+                          <button 
+                            onClick={() => onViewApplications(job.id)} 
+                            className="font-medium text-primary hover:underline"
+                          >
+                            View Applications
+                          </button>
+                        )}
                         <span className="text-gray-300">|</span>
                         <button className="font-medium text-primary hover:underline">Edit</button>
                     </div>

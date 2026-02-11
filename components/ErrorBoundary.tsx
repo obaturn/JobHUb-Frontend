@@ -74,7 +74,10 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
               </button>
 
               <button
-                onClick={() => window.location.href = '/'}
+                onClick={() => {
+                  window.history.pushState({}, '', '/');
+                  window.location.reload(); // Necessary for error recovery
+                }}
                 className="w-full bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors font-medium"
               >
                 Go Home

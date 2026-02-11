@@ -13,16 +13,32 @@ import { BehaviorTracker } from '@/src/utils/behaviorTracking';
 interface JobDetailsPageProps {
   job: Job;
   onBack: () => void;
-  onApply: (job: Job) => void;
+  onApply: (job: Job, applicationData?: any) => void;
   onToggleSave: (job: Job) => void;
   isSaved: boolean;
   isAuthenticated: boolean;
   onLoginRedirect: () => void;
   onViewCompanyProfile: (companyId: string) => void;
   onStartPracticeInterview: (job: Job) => void;
+  userResumes?: any[];
+  userEmail?: string;
+  userPhone?: string;
 }
 
-const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ job, onBack, onApply, onToggleSave, isSaved, isAuthenticated, onLoginRedirect, onViewCompanyProfile, onStartPracticeInterview }) => {
+const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ 
+  job, 
+  onBack, 
+  onApply, 
+  onToggleSave, 
+  isSaved, 
+  isAuthenticated, 
+  onLoginRedirect, 
+  onViewCompanyProfile, 
+  onStartPracticeInterview,
+  userResumes = [],
+  userEmail = '',
+  userPhone = ''
+}) => {
     const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
 
     // Track job view when component mounts
@@ -143,10 +159,14 @@ const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ job, onBack, onApply, o
             <ApplyJobModal 
                 job={job}
                 onClose={() => setIsApplyModalOpen(false)}
-                onSubmit={() => {
-                    onApply(job);
+                onSubmit={(applicationData) => {
+                    onApply(job, applicationData);
+                    setIsApplyModalOpen(false);
                 }}
                 onPractice={onStartPracticeInterview}
+                userResumes={userResumes}
+                userEmail={userEmail}
+                userPhone={userPhone}
             />
         )}
     </>

@@ -128,7 +128,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onClose }) => {
           value={userInput}
           onChange={(e) => setUserInput(e.target.value)}
           placeholder="Ask about jobs, companies..."
-          className="flex-1 w-full px-4 py-2 bg-neutral-light border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
+          className="flex-1 w-full px-4 py-2 bg-neutral-light border border-gray-300 rounded-full text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary"
           disabled={isLoading}
         />
         <button

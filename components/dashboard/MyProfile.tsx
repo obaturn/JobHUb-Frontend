@@ -8,12 +8,10 @@ import { XMarkIcon } from '../icons/XMarkIcon';
 import { AcademicCapIcon } from '../icons/AcademicCapIcon';
 import { LinkIcon } from '../icons/LinkIcon';
 import { CheckBadgeIcon } from '../icons/CheckBadgeIcon';
-import { getProfile, updateProfile, ProfileUpdateRequest } from '../../src/api/profileApi';
+import { getProfile, updateProfile, ProfileUpdateRequest, uploadAvatar } from '../../src/api/profileApi';
 import { getSkills, createSkill, deleteSkill, Skill, SkillRequest } from '../../src/api/skillsApi';
 import { getExperiences, createExperience, updateExperience, deleteExperience, Experience, ExperienceRequest } from '../../src/api/experienceApi';
 import { getEducations, createEducation, updateEducation, deleteEducation, Education, EducationRequest } from '../../src/api/educationApi';
-import { debugProfileEndpoints } from '../../src/utils/debugProfile';
-import { debugJWTToken } from '../../src/utils/tokenDebug';
 
 interface MyProfileProps {
   initialUser: User;
@@ -24,6 +22,9 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    const [showAvatarModal, setShowAvatarModal] = useState(false);
+    const [avatarUrl, setAvatarUrl] = useState('');
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
     
     // Ensure user has default values for arrays to prevent undefined errors
     const [user, setUser] = useState({
@@ -55,24 +56,15 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
             setLoading(true);
             setError(null);
             
-            // Load only the endpoints that exist (skip profile for now)
-            const [skillsData, experiencesData, educationsData] = await Promise.all([
+            // Load all profile data in parallel
+            const [profileData, skillsData, experiencesData, educationsData] = await Promise.all([
+                getProfile(),
                 getSkills(),
                 getExperiences(),
                 getEducations()
             ]);
             
-            // Set mock profile data temporarily
-            setProfile({
-                id: user.id,
-                userId: user.id,
-                firstName: user.name?.split(' ')[0] || 'User',
-                lastName: user.name?.split(' ').slice(1).join(' ') || 'Name',
-                bio: user.about || '',
-                location: user.location || '',
-                avatarUrl: user.avatar || ''
-            });
-            
+            setProfile(profileData);
             setSkills(skillsData);
             setExperiences(experiencesData);
             setEducations(educationsData);
@@ -105,6 +97,39 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
             setError(err.message || 'Failed to load profile');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleAvatarUpload = async () => {
+        if (!avatarUrl.trim()) {
+            setError('Please enter an avatar URL');
+            return;
+        }
+
+        try {
+            setUploadingAvatar(true);
+            setError(null);
+            
+            await uploadAvatar({ avatarUrl: avatarUrl.trim() });
+            
+            // Update local state
+            setUser(prev => ({ ...prev, avatar: avatarUrl.trim() }));
+            
+            // Close modal and show success
+            setShowAvatarModal(false);
+            setAvatarUrl('');
+            setSuccess('Avatar updated successfully!');
+            
+            // Clear success message after 3 seconds
+            setTimeout(() => setSuccess(null), 3000);
+            
+            // Reload profile data
+            await loadAllProfileData();
+        } catch (err: any) {
+            console.error('Avatar upload error:', err);
+            setError(err.message || 'Failed to upload avatar');
+        } finally {
+            setUploadingAvatar(false);
         }
     };
 
@@ -370,27 +395,6 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
 
     return (
         <div className="space-y-8">
-            {/* Debug Button - Remove after debugging */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <div className="flex gap-4">
-                    <button 
-                        onClick={debugProfileEndpoints}
-                        className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600"
-                    >
-                        🔍 Debug Profile Endpoints
-                    </button>
-                    <button 
-                        onClick={debugJWTToken}
-                        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-                    >
-                        🔐 Debug JWT Token
-                    </button>
-                </div>
-                <p className="text-sm text-yellow-700 mt-2">
-                    Click to test profile API endpoints and JWT token. Check browser console for results.
-                </p>
-            </div>
-
             {/* Error Message */}
             {error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -409,12 +413,23 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
             <div className="bg-gradient-to-r from-white to-gray-50 rounded-xl shadow-sm border border-gray-100 p-8">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                     <div className="flex items-center gap-6">
-                        <div className="relative">
+                        <div className="relative group">
                             <img
                                 src={user.avatar}
                                 alt={user.name}
                                 className="w-20 h-20 rounded-full ring-4 ring-white shadow-lg"
                             />
+                            {/* Avatar Upload Button */}
+                            <button
+                                onClick={() => setShowAvatarModal(true)}
+                                className="absolute inset-0 w-20 h-20 rounded-full bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100"
+                                title="Change avatar"
+                            >
+                                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                            </button>
                             <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
                                 <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -844,6 +859,107 @@ const MyProfile: React.FC<MyProfileProps> = ({ initialUser }) => {
                     )}
                 </div>
             </div>
+
+            {/* Avatar Upload Modal */}
+            {showAvatarModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold text-gray-900">Change Avatar</h3>
+                            <button
+                                onClick={() => {
+                                    setShowAvatarModal(false);
+                                    setAvatarUrl('');
+                                    setError(null);
+                                }}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                <XMarkIcon className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Avatar URL
+                                </label>
+                                <input
+                                    type="url"
+                                    value={avatarUrl}
+                                    onChange={(e) => setAvatarUrl(e.target.value)}
+                                    placeholder="https://example.com/avatar.jpg"
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Enter a URL to an image hosted online
+                                </p>
+                            </div>
+
+                            {/* Preview */}
+                            {avatarUrl && (
+                                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                                    <img
+                                        src={avatarUrl}
+                                        alt="Preview"
+                                        className="w-16 h-16 rounded-full object-cover"
+                                        onError={(e) => {
+                                            (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/error/200/200';
+                                        }}
+                                    />
+                                    <div className="text-sm text-gray-600">
+                                        Preview
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Quick Options */}
+                            <div>
+                                <p className="text-sm font-medium text-gray-700 mb-2">Quick Options:</p>
+                                <div className="flex flex-wrap gap-2">
+                                    <button
+                                        onClick={() => setAvatarUrl('https://i.pravatar.cc/200?img=12')}
+                                        className="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full"
+                                    >
+                                        Random 1
+                                    </button>
+                                    <button
+                                        onClick={() => setAvatarUrl('https://i.pravatar.cc/200?img=25')}
+                                        className="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full"
+                                    >
+                                        Random 2
+                                    </button>
+                                    <button
+                                        onClick={() => setAvatarUrl('https://i.pravatar.cc/200?img=68')}
+                                        className="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full"
+                                    >
+                                        Random 3
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    onClick={() => {
+                                        setShowAvatarModal(false);
+                                        setAvatarUrl('');
+                                        setError(null);
+                                    }}
+                                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleAvatarUpload}
+                                    disabled={uploadingAvatar || !avatarUrl.trim()}
+                                    className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {uploadingAvatar ? 'Uploading...' : 'Upload'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

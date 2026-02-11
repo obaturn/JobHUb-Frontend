@@ -9,10 +9,7 @@ import UnifiedSocialFeed from '../feed/UnifiedSocialFeed';
 
 interface EmployerOverviewProps {
   user: User;
-  onViewJobDetails: (job: Job) => void;
-  onViewCompanyProfile: (companyId: string) => void;
-  onApplyJob: (job: Job) => void;
-  onSaveJob: (job: Job) => void;
+  jobs: any[];
   setActiveTab: (tab: EmployerDashboardTab) => void;
 }
 
@@ -30,15 +27,12 @@ const StatCard: React.FC<{ value: string | number; label: string; icon: React.Re
 
 const EmployerOverview: React.FC<EmployerOverviewProps> = ({ 
     user, 
-    onViewJobDetails, 
-    onViewCompanyProfile,
-    onApplyJob,
-    onSaveJob,
+    jobs,
     setActiveTab 
 }) => {
-    const totalViews = EMPLOYER_JOBS.reduce((acc, job) => acc + (job.viewsCount || 0), 0);
-    const totalApplications = EMPLOYER_APPLICATIONS.length;
-    const activeJobs = EMPLOYER_JOBS.filter(job => job.status === 'Published').length;
+    const totalViews = jobs.reduce((acc, job) => acc + (job.viewsCount || 0), 0);
+    const totalApplications = 0; // Will be calculated from API
+    const activeJobs = jobs.filter(job => job.status === 'Published').length;
     
     return (
         <div className="space-y-8">
@@ -97,24 +91,9 @@ const EmployerOverview: React.FC<EmployerOverviewProps> = ({
             </div>
 
             {/* Professional Network Feed */}
-            <div className="bg-white rounded-lg shadow-md">
-                <div className="p-6 border-b">
-                    <h2 className="text-xl font-bold text-neutral-dark">Professional Network</h2>
-                    <p className="text-gray-600 text-sm mt-1">See what professionals in your network are sharing</p>
-                </div>
-                <div className="p-6">
-                    <UnifiedSocialFeed
-                        currentUser={user}
-                        userType="employer"
-                        onViewJobDetails={onViewJobDetails}
-                        onViewCompanyProfile={onViewCompanyProfile}
-                        onApplyJob={onApplyJob}
-                        onSaveJob={onSaveJob}
-                        onViewProfile={(userId) => {
-                            console.log('View profile:', userId);
-                        }}
-                    />
-                </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-bold text-neutral-dark mb-2">Professional Network</h2>
+                <p className="text-gray-600 text-sm">Coming soon - Connect with professionals in your network</p>
             </div>
         </div>
     );

@@ -102,7 +102,9 @@ const Settings: React.FC<SettingsProps> = ({ user }) => {
       setLoading(true);
       await deleteAccount();
       // Redirect to home page after successful deletion
-      window.location.href = '/';
+      await useAuthStore.getState().logout();
+      window.history.pushState({}, '', '/');
+      window.location.reload(); // Necessary after account deletion
     } catch (err) {
       setError('Failed to delete account');
       setLoading(false);

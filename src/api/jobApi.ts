@@ -112,3 +112,104 @@ export async function getRecommendedJobs(limit: number = 10): Promise<Job[]> {
 export async function getJobsByCategory(category: string, limit: number = 10): Promise<Job[]> {
   return httpGet<Job[]>(`/api/v1/jobs/category/${category}?limit=${limit}`);
 }
+
+// ============== SAVED JOBS ==============
+
+export interface SavedJobsResponse {
+  savedJobs: Array<{
+    id: number;
+    jobId: number;
+    savedDate: string;
+    job: any; // Job details
+  }>;
+  total: number;
+  page: number;
+  pages: number;
+  limit: number;
+}
+
+/**
+ * Get saved jobs with pagination
+ * GET /api/v1/jobs/saved
+ */
+export async function getSavedJobs(
+  page: number = 1,
+  limit: number = 20,
+  sortBy: string = 'savedDate',
+  sortOrder: 'asc' | 'desc' = 'desc'
+): Promise<SavedJobsResponse> {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+    sortBy,
+    sortOrder
+  });
+  
+  console.log('📚 Fetching saved jobs:', params.toString());
+  return httpGet<SavedJobsResponse>(`/jobs/saved?${params.toString()}`);
+}
+
+/**
+ * Get saved jobs count
+ * GET /api/v1/jobs/saved/count
+ */
+export async function getSavedJobsCount(): Promise<{ count: number }> {
+  console.log('🔢 Fetching saved jobs count');
+  return httpGet<{ count: number }>('/jobs/saved/count');
+}
+
+// ============== RECOMMENDATIONS ==============
+
+export interface RecommendationResponse {
+  recommendations: Array<{
+    job: any; // Job details
+    matchScore: number;
+    matchReasons: string[];
+  }>;
+  total: number;
+  page: number;
+  cachedAt: string;
+}
+
+/**
+ * Get job recommendations with pagination
+ * GET /api/v1/jobs/recommendations
+ */
+export async function getRecommendations(
+  limit: number = 10,
+  page: number = 1,
+  refresh: boolean = false
+): Promise<RecommendationResponse> {
+  const params = new URLSearchParams({
+    limit: limit.toString(),
+    page: page.toString(),
+    refresh: refresh.toString()
+  });
+  
+  console.log('🎯 Fetching job recommendations:', params.toString());
+  return httpGet<RecommendationResponse>(`/jobs/recommendations?${params.toString()}`);
+}
+
+/**
+ * Refresh recommendations (force recalculation)
+ * GET /api/v1/jobs/recommendations/refresh
+ */
+export async function refreshRecommendations(): Promise<{ message: string; count: number }> {
+  console.log('🔄 Refreshing recommendations');
+  return httpGet<{ message: string; count: number }>('/jobs/recommendations/refresh');
+}
+
+/**
+ * Provide feedback on recommendation
+ * POST /api/v1/jobs/recommendations/feedback
+ */
+export interface RecommendationFeedbackRequest {
+  jobId: number;
+  feedback: 'INTERESTED' | 'NOT_INTERESTED' | 'APPLIED' | 'NOT_RELEVANT';
+  reason?: string;
+}
+
+export async function provideFeedback(request: RecommendationFeedbackRequest): Promise<{ message: string }> {
+  console.log('💬 Providing recommendation feedback:', request);
+  return httpPost<{ message: string }>('/jobs/recommendations/feedback', request);
+}

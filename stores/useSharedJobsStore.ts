@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { Job } from '../types';
 import { httpGet } from '../src/api/httpClient';
 
@@ -17,14 +18,17 @@ interface SharedJobsState {
   clearJobs: () => void;
 }
 
-export const useSharedJobsStore = create<SharedJobsState>((set, get) => ({
-  allJobs: [],
-  loading: false,
-  error: null,
-  lastFetched: null,
+export const useSharedJobsStore = create<SharedJobsState>()(
+  persist(
+    (set, get) => ({
+      allJobs: [],
+      loading: false,
+      error: null,
+      lastFetched: null,
 
   // Fetch all published jobs from backend using httpClient
   fetchAllJobs: async () => {
+    const currentJobs = get().allJobs;
     set({ loading: true, error: null });
     
     try {
@@ -34,12 +38,24 @@ export const useSharedJobsStore = create<SharedJobsState>((set, get) => ({
       const data = await httpGet('/jobs?status=Published');
       
       // Handle both array response and object with jobs array
-      const jobs = Array.isArray(data) ? data : (data as any).jobs || [];
+      const fetchedJobs = Array.isArray(data) ? data : (data as any).jobs || [];
       
-      console.log('✅ [SharedJobsStore] Fetched jobs:', jobs.length);
+      console.log('✅ [SharedJobsStore] Fetched jobs:', fetchedJobs.length);
+      
+      // Merge: Keep locally added jobs that aren't in the backend response yet
+      // This ensures jobs posted by employers appear immediately for job seekers
+      const fetchedJobIds = new Set(fetchedJobs.map((j: Job) => j.id));
+      const localOnlyJobs = currentJobs.filter(job => !fetchedJobIds.has(job.id));
+      
+      const mergedJobs = [...localOnlyJobs, ...fetchedJobs];
+      console.log('🔀 [SharedJobsStore] Merged jobs:', {
+        fetched: fetchedJobs.length,
+        localOnly: localOnlyJobs.length,
+        total: mergedJobs.length
+      });
       
       set({ 
-        allJobs: jobs, 
+        allJobs: mergedJobs, 
         loading: false,
         lastFetched: new Date()
       });
@@ -89,4 +105,10 @@ export const useSharedJobsStore = create<SharedJobsState>((set, get) => ({
     console.log('🧹 [SharedJobsStore] Clearing all jobs');
     set({ allJobs: [], lastFetched: null });
   }
-}));
+    }),
+    {
+      name: 'shared-jobs-storage', // localStorage key
+      partialState: (state) => ({ allJobs: state.allJobs }), // Only persist jobs
+    }
+  )
+);
