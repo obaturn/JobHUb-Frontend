@@ -158,9 +158,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       
       console.log('✅ [AuthStore] Signup completed - awaiting email verification');
-      
-      // Return email for verification screen
-      return { success: true, email: userData.email };
     } catch (error) {
       console.error('❌ [AuthStore] Signup error:', error);
       const message = error instanceof Error ? error.message : 'Signup failed';

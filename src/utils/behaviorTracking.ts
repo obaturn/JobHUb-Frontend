@@ -2,15 +2,21 @@
  * Behavior Tracking Utility
  * Tracks user interactions (views, applies, saves, etc.)
  * Sends events to backend via trackBehavior API
+ * 
+ * TEMPORARILY DISABLED - Backend endpoint not ready (403 errors)
  */
 
 import * as behaviorApi from '../api/behaviorApi';
+
+const TRACKING_ENABLED = false; // Set to true when backend is ready
 
 export class BehaviorTracker {
   /**
    * Track when a user views a job listing
    */
   static async trackJobView(jobId: string): Promise<void> {
+    if (!TRACKING_ENABLED) return;
+    
     try {
       await behaviorApi.trackBehavior({
         event: 'job_viewed',
@@ -26,6 +32,8 @@ export class BehaviorTracker {
    * Track when a user applies to a job
    */
   static async trackJobApply(jobId: string): Promise<void> {
+    if (!TRACKING_ENABLED) return;
+    
     try {
       await behaviorApi.trackBehavior({
         event: 'job_applied',
@@ -41,6 +49,8 @@ export class BehaviorTracker {
    * Track when a user saves a job
    */
   static async trackJobSave(jobId: string): Promise<void> {
+    if (!TRACKING_ENABLED) return;
+    
     try {
       await behaviorApi.trackBehavior({
         event: 'job_saved',

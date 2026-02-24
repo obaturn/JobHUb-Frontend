@@ -16,6 +16,24 @@ const JobListings: React.FC<JobListingsProps> = ({ onViewJobDetails, onViewCompa
   const [showSaveSearchToast, setShowSaveSearchToast] = useState(false);
   const [sortBy, setSortBy] = useState('Most Recent');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  
+  // Get applied job IDs from localStorage
+  const [appliedJobIds, setAppliedJobIds] = useState<number[]>([]);
+  
+  useEffect(() => {
+    // Load applied job IDs from localStorage
+    const savedApplications = localStorage.getItem('jobhub_applications');
+    if (savedApplications) {
+      try {
+        const parsed = JSON.parse(savedApplications);
+        const ids = parsed.map((app: any) => app.job?.id).filter(Boolean);
+        setAppliedJobIds(ids);
+        console.log('📂 [JobListings] Loaded applied jobs:', ids);
+      } catch (e) {
+        console.error('Failed to parse applications:', e);
+      }
+    }
+  }, []);
 
   // Fetch jobs on component mount
   useEffect(() => {
@@ -170,6 +188,7 @@ const JobListings: React.FC<JobListingsProps> = ({ onViewJobDetails, onViewCompa
               job={job}
               onViewJobDetails={onViewJobDetails}
               onViewCompanyProfile={onViewCompanyProfile}
+              applied={appliedJobIds.includes(job.id)}
             />
           ))}
         </div>

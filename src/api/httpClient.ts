@@ -114,6 +114,19 @@ export async function httpClient(
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
+  // Add X-User-Id header if user is logged in
+  const userStr = localStorage.getItem('user');
+  if (userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      if (user?.id) {
+        headers['X-User-Id'] = user.id;
+      }
+    } catch (e) {
+      // Ignore parse errors
+    }
+  }
+
   let response = await fetch(fullUrl, {
     ...config,
     headers,
@@ -141,6 +154,19 @@ export async function httpClient(
 
       if (newAccessToken) {
         retryHeaders['Authorization'] = `Bearer ${newAccessToken}`;
+      }
+
+      // Add X-User-Id header in retry as well
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          if (user?.id) {
+            retryHeaders['X-User-Id'] = user.id;
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
       }
 
       response = await fetch(fullUrl, {

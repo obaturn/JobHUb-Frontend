@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Job, Resume } from '../../types';
+import { useUserStore } from '../../src/stores/userStore';
 import { XMarkIcon } from '../icons/XMarkIcon';
 import { DocumentTextIcon } from '../icons/DocumentTextIcon';
 import { SparklesIcon } from '../icons/SparklesIcon';
@@ -38,6 +39,9 @@ const ApplyJobModal: React.FC<ApplyJobModalProps> = ({
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // Get user store for last used resume
+  const { resumes, lastUsedResumeId, setLastUsedResumeId } = useUserStore();
+  
   // Form data
   const [formData, setFormData] = useState<ApplicationData>({
     email: userEmail,
@@ -46,8 +50,9 @@ const ApplyJobModal: React.FC<ApplyJobModalProps> = ({
     answers: {}
   });
   
+  // Use last used resume first, then fall back to primary resume
   const [selectedResumeId, setSelectedResumeId] = useState<string>(
-    userResumes.find(r => r.isPrimary)?.id || ''
+    lastUsedResumeId || resumes.find(r => r.isPrimary)?.id || ''
   );
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
@@ -75,6 +80,11 @@ const ApplyJobModal: React.FC<ApplyJobModalProps> = ({
 
   const handleSubmitApplication = async () => {
     setIsSubmitting(true);
+    
+    // Save the last used resume
+    if (selectedResumeId) {
+      setLastUsedResumeId(selectedResumeId);
+    }
     
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500));

@@ -16,6 +16,8 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     title: initialData?.title || '',
+    company: '',
+    companyLogo: '',
     department: initialData?.department || '',
     location: initialData?.location || '',
     type: initialData?.type || 'Full-time',
@@ -58,7 +60,18 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    // Transform form data to match Job type
+    const jobData = {
+      ...formData,
+      // Map company and companyLogo to match Job interface
+      company: formData.company,
+      logo: formData.companyLogo || undefined,
+      // Map experienceLevel to seniority
+      seniority: formData.experienceLevel as 'Entry' | 'Junior' | 'Mid' | 'Senior' | 'Lead' | 'Executive',
+      // Map remote to isRemote
+      isRemote: formData.remote,
+    } as any;
+    onSubmit(jobData);
   };
 
   return (
@@ -91,6 +104,49 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 placeholder="e.g., Senior Frontend Developer"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Company Name *
+              </label>
+              <input
+                type="text"
+                name="company"
+                value={formData.company}
+                onChange={handleInputChange}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                placeholder="e.g., Google Inc."
+              />
+            </div>
+
+            <div className="lg:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Company Logo URL (Optional)
+              </label>
+              <input
+                type="url"
+                name="companyLogo"
+                value={formData.companyLogo}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                placeholder="https://example.com/logo.png"
+              />
+              <p className="text-xs text-gray-500 mt-1">Paste your company logo URL (e.g., from your website or LinkedIn)</p>
+              {formData.companyLogo && (
+                <div className="mt-2 flex items-center gap-3 p-2 bg-gray-50 rounded-lg border border-gray-200 w-fit">
+                  <img 
+                    src={formData.companyLogo} 
+                    alt="Company logo preview" 
+                    className="w-12 h-12 object-contain rounded-lg bg-white"
+                    onError={(e) => {
+                      e.currentTarget.src = 'https://via.placeholder.com/100?text=Invalid+URL';
+                    }}
+                  />
+                  <span className="text-xs text-gray-500">Logo Preview</span>
+                </div>
+              )}
             </div>
 
             <div>

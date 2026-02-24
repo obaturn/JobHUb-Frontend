@@ -2,6 +2,10 @@ import React, { useState } from 'react';
 import { createJob } from '../../src/api/jobsApi';
 import { useSharedJobsStore } from '../../stores/useSharedJobsStore';
 
+// Styles for consistent input fields
+const INPUT_CLASS = "w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all dark:bg-gray-800 dark:border-gray-600 dark:text-white";
+const TEXTAREA_CLASS = "w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all dark:bg-gray-800 dark:border-gray-600 dark:text-white";
+
 interface PostJobFormProps {
   onJobPosted: () => void;
 }
@@ -36,14 +40,29 @@ const PostJobForm: React.FC<PostJobFormProps> = ({ onJobPosted }) => {
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    console.log('🔴 [PostJobForm] Form submitted! Current step:', currentStep);
+    
+    // IMPORTANT: Only submit if on Step 3 (Review)
+    if (currentStep !== 3) {
+      console.warn('⚠️ [PostJobForm] BLOCKED - Cannot submit - not on review step. Current step:', currentStep);
+      alert(`⚠️ Please complete all steps!\n\nYou are on Step ${currentStep} of 3.\nClick "Next" to continue to the review step.`);
+      return;
+    }
+    
+    console.log('✅ [PostJobForm] Validation passed - proceeding with submission');
     setLoading(true);
     setError('');
+    
+    console.log('📤 [PostJobForm] Submitting job posting...');
     
     try {
       const skillsArray = formData.skills.split(',').map(s => s.trim()).filter(s => s);
       const salary = formData.salaryMin && formData.salaryMax 
         ? `$${formData.salaryMin} - $${formData.salaryMax}`
         : formData.salary;
+      
+      console.log('📤 [PostJobForm] Calling createJob API...');
       
       const job = await createJob({
         title: formData.title,
@@ -59,7 +78,7 @@ const PostJobForm: React.FC<PostJobFormProps> = ({ onJobPosted }) => {
         logo: formData.companyLogo || undefined
       });
       
-      console.log('✅ Job posted:', job);
+      console.log('✅ [PostJobForm] Job created successfully:', job);
       
       // Map backend response to frontend Job type
       const mappedJob = {
@@ -73,7 +92,9 @@ const PostJobForm: React.FC<PostJobFormProps> = ({ onJobPosted }) => {
         salary: salary,
         posted: 'Just now',
         description: job.description,
-        responsibilities: formData.responsibilities,
+        responsibilities: formData.responsibilities
+            ? formData.responsibilities.split('\n').map(r => r.trim().replace(/^[•\-\*]\s*/, '')).filter(r => r.length > 0)
+            : [],
         skills: job.skills,
         benefits: formData.benefits ? formData.benefits.split('\n').filter(b => b.trim()) : [],
         status: job.status as any,
@@ -85,36 +106,19 @@ const PostJobForm: React.FC<PostJobFormProps> = ({ onJobPosted }) => {
       // Add to shared store so job seekers can see it immediately
       const { addJob } = useSharedJobsStore.getState();
       addJob(mappedJob);
-      console.log('➕ Added job to shared store for job seekers');
+      console.log('➕ [PostJobForm] Added job to shared store:', {
+        jobId: mappedJob.id,
+        title: mappedJob.title,
+        company: mappedJob.company,
+        totalJobsInStore: useSharedJobsStore.getState().allJobs.length
+      });
       
       setSuccess(true);
+      
+      // Show success message for 3 seconds, then navigate
       setTimeout(() => {
-        // Reset form
-        setFormData({
-          title: '',
-          company: '',
-          companyLogo: '',
-          location: '',
-          type: 'Full-time',
-          salary: '',
-          salaryMin: '',
-          salaryMax: '',
-          description: '',
-          responsibilities: '',
-          qualifications: '',
-          benefits: '',
-          skills: '',
-          seniority: 'Mid',
-          isRemote: false,
-          workplaceType: 'On-site',
-          employmentType: 'Full-time',
-          applicationDeadline: '',
-          status: 'Published'
-        });
-        setCurrentStep(1);
-        setSuccess(false);
-        onJobPosted();
-      }, 2000);
+        onJobPosted(); // Navigate to "My Jobs" tab
+      }, 3000);
       
     } catch (error: any) {
       console.error('❌ Failed to post job:', error);
@@ -124,58 +128,50 @@ const PostJobForm: React.FC<PostJobFormProps> = ({ onJobPosted }) => {
     }
   };
 
-  const nextStep = () => {
-    if (currentStep < 3) setCurrentStep(currentStep + 1);
+  const nextStep = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('➡️ [PostJobForm] Next button clicked. Current step:', currentStep);
+    if (currentStep < 3) {
+      setCurrentStep(currentStep + 1);
+      console.log('✅ [PostJobForm] Moved to step:', currentStep + 1);
+    }
   };
 
-  const prevStep = () => {
-    if (currentStep > 1) setCurrentStep(currentStep - 1);
+  const prevStep = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('⬅️ [PostJobForm] Back button clicked. Current step:', currentStep);
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+      console.log('✅ [PostJobForm] Moved to step:', currentStep - 1);
+    }
   };
   
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Full-Screen Loading Overlay */}
-      {loading && (
+      {/* Success Screen */}
+      {success && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 text-center">
-            <div className="relative">
-              {/* Animated Spinner */}
-              <div className="w-20 h-20 mx-auto mb-6">
-                <div className="w-20 h-20 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-              </div>
-              
-              {/* Progress Animation */}
-              <div className="mb-6">
-                <div className="flex items-center justify-center gap-2 mb-3">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Publishing Your Job</h3>
-                <p className="text-gray-600 text-sm">
-                  Please wait while we post your job to thousands of candidates...
-                </p>
-              </div>
-
-              {/* Steps Indicator */}
-              <div className="space-y-2 text-left">
-                <div className="flex items-center gap-3 text-sm">
-                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <span className="text-gray-700">Validating job details</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <div className="w-5 h-5 bg-blue-500 rounded-full animate-pulse flex-shrink-0"></div>
-                  <span className="text-gray-700">Posting to job board</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <div className="w-5 h-5 bg-gray-300 rounded-full flex-shrink-0"></div>
-                  <span className="text-gray-400">Notifying candidates</span>
-                </div>
-              </div>
+            <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6 animate-bounce-once">
+              <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 className="text-3xl font-bold text-gray-900 mb-3">Job Posted Successfully!</h3>
+            <p className="text-gray-600 text-lg mb-2">
+              Your job posting for <span className="font-semibold text-gray-900">{formData.title}</span> is now live!
+            </p>
+            <p className="text-gray-500 text-sm mb-6">
+              Candidates can now see and apply to your job. Redirecting to your jobs...
+            </p>
+            <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <span>Redirecting...</span>
             </div>
           </div>
         </div>
@@ -240,7 +236,13 @@ const PostJobForm: React.FC<PostJobFormProps> = ({ onJobPosted }) => {
           </div>
         )}
         
-        <form onSubmit={handleSubmit} className="p-8">
+        <form onSubmit={handleSubmit} onKeyDown={(e) => {
+          // Prevent Enter key from submitting form unless on Step 3
+          if (e.key === 'Enter' && currentStep !== 3) {
+            e.preventDefault();
+            console.log('⚠️ [PostJobForm] Enter key blocked - not on Step 3');
+          }
+        }} className="p-8">
           {/* Step 1: Basic Information */}
           {currentStep === 1 && (
             <div className="space-y-6 animate-fadeIn">
@@ -252,7 +254,7 @@ const PostJobForm: React.FC<PostJobFormProps> = ({ onJobPosted }) => {
                   type="text"
                   value={formData.title}
                   onChange={(e) => setFormData({...formData, title: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
                   placeholder="e.g. Senior Software Engineer"
                   required
                 />
@@ -267,7 +269,7 @@ const PostJobForm: React.FC<PostJobFormProps> = ({ onJobPosted }) => {
                   type="text"
                   value={formData.company}
                   onChange={(e) => setFormData({...formData, company: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={INPUT_CLASS}
                   placeholder="e.g. Google Inc."
                   required
                 />
@@ -281,7 +283,7 @@ const PostJobForm: React.FC<PostJobFormProps> = ({ onJobPosted }) => {
                   type="url"
                   value={formData.companyLogo}
                   onChange={(e) => setFormData({...formData, companyLogo: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={INPUT_CLASS}
                   placeholder="https://example.com/logo.png"
                 />
                 {formData.companyLogo && (
@@ -657,7 +659,7 @@ const PostJobForm: React.FC<PostJobFormProps> = ({ onJobPosted }) => {
           <div className="flex justify-between mt-8 pt-6 border-t">
             <button
               type="button"
-              onClick={prevStep}
+              onClick={(e) => prevStep(e)}
               disabled={currentStep === 1}
               className="px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -668,7 +670,7 @@ const PostJobForm: React.FC<PostJobFormProps> = ({ onJobPosted }) => {
               {currentStep < 3 ? (
                 <button
                   type="button"
-                  onClick={nextStep}
+                  onClick={(e) => nextStep(e)}
                   className="px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
                 >
                   Next →
@@ -677,24 +679,15 @@ const PostJobForm: React.FC<PostJobFormProps> = ({ onJobPosted }) => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-8 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-8 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? (
-                    <>
-                      <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Publishing...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Publish Job
-                    </>
+                  {loading && (
+                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
                   )}
+                  {loading ? 'Publishing...' : 'Publish Job'}
                 </button>
               )}
             </div>

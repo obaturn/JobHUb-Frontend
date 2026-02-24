@@ -7,7 +7,7 @@ interface ApplicationStatusTimelineProps {
 }
 
 // Defines the positive progression of an application
-const steps: Exclude<Application['status'], 'Rejected'>[] = ['Applied', 'Resume Viewed', 'In Review', 'Shortlisted', 'Interview', 'Offered'];
+const steps: Exclude<Application['status'], 'REJECTED' | 'WITHDRAWN'>[] = ['APPLIED', 'RESUME_VIEWED', 'IN_REVIEW', 'SHORTLISTED', 'INTERVIEW', 'OFFERED'];
 
 const CheckIcon: React.FC = () => (
     <svg className="w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -19,7 +19,7 @@ const ApplicationStatusTimeline: React.FC<ApplicationStatusTimelineProps> = ({ s
   const currentStepIndex = steps.indexOf(status as any);
 
   // We don't render a timeline for rejected applications; the colored badge is clearer.
-  if (status === 'Rejected' || currentStepIndex === -1) {
+  if (status === 'REJECTED' || status === 'WITHDRAWN' || currentStepIndex === -1) {
     return null;
   }
 

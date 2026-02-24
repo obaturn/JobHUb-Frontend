@@ -10,19 +10,30 @@ import { httpPost, httpGet, httpPut } from './httpClient';
 export interface SubmitApplicationRequest {
   jobId: number;
   resumeId?: string;
+  resumeFile?: File;
+  resumeFileName?: string;
+  resumeContentType?: string;
+  resumeData?: string;
   coverLetter?: string;
+  applicantName: string;
+  applicantEmail: string;
 }
 
 export interface ApplicationResponse {
   id: string;
   userId: string;
   jobId: number;
+  jobTitle?: string;
+  companyName?: string;
   status: 'APPLIED' | 'RESUME_VIEWED' | 'IN_REVIEW' | 'SHORTLISTED' | 'INTERVIEW' | 'OFFERED' | 'REJECTED' | 'WITHDRAWN';
   appliedDate: string;
   resumeId?: string;
+  resumeFileName?: string;
   coverLetter?: string;
   withdrawnDate?: string;
   withdrawReason?: string;
+  applicantName?: string;
+  applicantEmail?: string;
 }
 
 export interface ApplicationDetailsResponse extends ApplicationResponse {
@@ -47,10 +58,49 @@ export interface ApplicationStatsResponse {
 /**
  * Submit a new job application
  * POST /api/v1/applications
+ * Uses JSON with base64-encoded resume data
  */
 export async function submitApplication(request: SubmitApplicationRequest): Promise<ApplicationResponse> {
   console.log('📤 Submitting application:', request);
+  
+  // If there's a resume file, convert to base64
+  if (request.resumeFile) {
+    const base64Data = await fileToBase64(request.resumeFile);
+    
+    // Create the request with base64-encoded resume
+    const requestWithResume = {
+      ...request,
+      resumeFileName: request.resumeFile.name,
+      resumeContentType: request.resumeFile.type,
+      resumeData: base64Data
+    };
+    
+    // Remove the File object from the request (can't be JSON serialized)
+    const { resumeFile, ...requestWithoutFile } = requestWithResume;
+    
+    console.log('📤 Submitting with resume file:', request.resumeFile.name);
+    return httpPost<ApplicationResponse>('/applications', requestWithoutFile);
+  }
+  
+  // No resume file - use regular JSON endpoint but still include resume info if resumeId is provided
   return httpPost<ApplicationResponse>('/applications', request);
+}
+
+/**
+ * Convert a File to base64 string
+ */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove the "data:application/pdf;base64," prefix
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = error => reject(error);
+  });
 }
 
 /**
@@ -118,5 +168,43 @@ export async function updateApplicationStatus(
 ): Promise<ApplicationDetailsResponse> {
   console.log('📝 Updating application status:', applicationId, request.status);
   return httpPut<ApplicationDetailsResponse>(`/applications/${applicationId}/status`, request);
+}
+
+/**
+ * Download/view resume for an application (Employer only)
+ * GET /api/v1/applications/{applicationId}/resume
+ */
+export async function downloadResume(applicationId: string): Promise<void> {
+  console.log('📥 Downloading resume for application:', applicationId);
+  
+  // Get the blob data using authenticated httpClient
+  const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8084/api/v1'}/applications/${applicationId}/resume`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+    }
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to download resume: ${response.status} ${response.statusText}`);
+  }
+  
+  // Get the blob from response
+  const blob = await response.blob();
+  
+  // Create a temporary URL for the blob
+  const fileURL = URL.createObjectURL(blob);
+  
+  // Open in new tab
+  window.open(fileURL, '_blank');
+}
+
+/**
+ * Get applications for a specific job (Employer only)
+ * GET /api/v1/applications?jobId={jobId}
+ */
+export async function getJobApplications(jobId: number): Promise<PagedApplicationsResponse> {
+  console.log('📥 Fetching applications for job:', jobId);
+  return getUserApplications(jobId);
 }
 

@@ -10,13 +10,14 @@ interface MyApplicationsProps {
 }
 
 const statusColors: { [key in Application['status']]: string } = {
-    Applied: 'bg-blue-100 text-blue-800',
-    'Resume Viewed': 'bg-cyan-100 text-cyan-800',
-    'In Review': 'bg-yellow-100 text-yellow-800',
-    Shortlisted: 'bg-indigo-100 text-indigo-800',
-    Interview: 'bg-purple-100 text-purple-800',
-    Offered: 'bg-green-100 text-green-800',
-    Rejected: 'bg-red-100 text-red-800',
+    APPLIED: 'bg-blue-100 text-blue-800',
+    RESUME_VIEWED: 'bg-cyan-100 text-cyan-800',
+    IN_REVIEW: 'bg-yellow-100 text-yellow-800',
+    SHORTLISTED: 'bg-indigo-100 text-indigo-800',
+    INTERVIEW: 'bg-purple-100 text-purple-800',
+    OFFERED: 'bg-green-100 text-green-800',
+    REJECTED: 'bg-red-100 text-red-800',
+    WITHDRAWN: 'bg-gray-100 text-gray-800',
 };
 
 const MyApplications: React.FC<MyApplicationsProps> = ({ applications, onViewJobDetails, onViewCompanyProfile }) => {
@@ -51,7 +52,7 @@ const MyApplications: React.FC<MyApplicationsProps> = ({ applications, onViewJob
                                <button onClick={() => onViewJobDetails(app.job)} className="text-sm text-primary font-medium hover:underline">View</button>
                             </div>
                         </div>
-                        {app.status !== 'Rejected' && (
+                        {app.status !== 'REJECTED' && (
                             <div className="mt-4 pt-4 border-t border-gray-100">
                                 <ApplicationStatusTimeline status={app.status} />
                             </div>

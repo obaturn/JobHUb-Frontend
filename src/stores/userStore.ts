@@ -1,11 +1,12 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { Resume, CompletedAssessment, UserPost, ConnectionRequest, Conversation } from '../types';
-import { MOCK_RESUMES, MOCK_COMPLETED_ASSESSMENTS, MOCK_POSTS, MOCK_CONNECTION_REQUESTS, MOCK_CONVERSATIONS } from '../constants';
+import { MOCK_COMPLETED_ASSESSMENTS, MOCK_POSTS, MOCK_CONNECTION_REQUESTS, MOCK_CONVERSATIONS } from '../constants';
 
 export interface UserState {
   // State
   resumes: Resume[];
+  lastUsedResumeId: string | null;
   completedAssessments: CompletedAssessment[];
   posts: UserPost[];
   connectionRequests: ConnectionRequest[];
@@ -15,6 +16,7 @@ export interface UserState {
 
   // Actions
   setResumes: (resumes: Resume[]) => void;
+  setLastUsedResumeId: (resumeId: string) => void;
   uploadResume: (fileName: string, fileContent: string) => void;
   deleteResume: (resumeId: string) => void;
   setPrimaryResume: (resumeId: string) => void;
@@ -35,7 +37,8 @@ export const useUserStore = create<UserState>()(
   devtools(
     (set, get) => ({
       // Initial state
-      resumes: MOCK_RESUMES,
+      resumes: [],
+      lastUsedResumeId: null,
       completedAssessments: MOCK_COMPLETED_ASSESSMENTS,
       posts: MOCK_POSTS,
       connectionRequests: MOCK_CONNECTION_REQUESTS,
@@ -46,6 +49,10 @@ export const useUserStore = create<UserState>()(
       // Actions
       setResumes: (resumes) => {
         set({ resumes });
+      },
+
+      setLastUsedResumeId: (resumeId) => {
+        set({ lastUsedResumeId: resumeId });
       },
 
       uploadResume: (fileName, fileContent) => {
@@ -60,6 +67,7 @@ export const useUserStore = create<UserState>()(
 
         set({
           resumes: [newResume, ...resumes],
+          lastUsedResumeId: newResume.id,
         });
       },
 
@@ -167,7 +175,8 @@ export const useUserStore = create<UserState>()(
         switch (userType) {
           case 'job_seeker':
             set({
-              resumes: MOCK_RESUMES,
+              resumes: [],
+              lastUsedResumeId: null,
               completedAssessments: MOCK_COMPLETED_ASSESSMENTS,
               posts: MOCK_POSTS,
               connectionRequests: MOCK_CONNECTION_REQUESTS,
@@ -204,11 +213,8 @@ export const useUserStore = create<UserState>()(
           conversations: [],
           selectedCompanyId: null,
           jobToPractice: null,
-        });
-      },
-    }),
-    {
-      name: 'user-store',
+        })
+      }
     }
   )
-);
+))

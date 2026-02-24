@@ -22,6 +22,7 @@ export interface CreateJobRequest {
   seniority: 'Junior' | 'Mid' | 'Senior' | 'Lead';
   isRemote: boolean;
   educationRequired?: string;
+  logo?: string;
 }
 
 export interface JobResponse {
@@ -41,6 +42,7 @@ export interface JobResponse {
   seniority: string;
   isRemote: boolean;
   educationRequired?: string;
+  logo?: string;
   createdAt: string;
   updatedAt: string;
 }

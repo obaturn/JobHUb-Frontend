@@ -8,9 +8,10 @@ interface JobCardProps {
   job: Job;
   onViewJobDetails: (job: Job) => void;
   onViewCompanyProfile: (companyId: string) => void;
+  applied?: boolean; // Show applied badge if true
 }
 
-const JobCard: React.FC<JobCardProps> = ({ job, onViewJobDetails, onViewCompanyProfile }) => {
+const JobCard: React.FC<JobCardProps> = ({ job, onViewJobDetails, onViewCompanyProfile, applied = false }) => {
   const getJobTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
       case 'full-time': return 'bg-green-100 text-green-800 border-green-200';
@@ -53,7 +54,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onViewJobDetails, onViewCompanyP
         <div className="flex-grow min-w-0">
           <button
             onClick={() => {
-              BehaviorTracker.trackJobView(job.id);
+              BehaviorTracker.trackJobView(job.id.toString());
               onViewJobDetails(job);
             }}
             className="text-left block group-hover:text-primary transition-colors duration-300"
@@ -124,6 +125,21 @@ const JobCard: React.FC<JobCardProps> = ({ job, onViewJobDetails, onViewCompanyP
           )}
         </div>
         <div className="flex items-center gap-2">
+          {applied ? (
+            <span className="flex items-center gap-1 px-4 py-2 text-sm bg-green-100 text-green-700 rounded-lg font-semibold">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Applied
+            </span>
+          ) : (
+            <button
+              onClick={() => onViewJobDetails(job)}
+              className="px-4 py-2 text-sm bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+            >
+              View Details
+            </button>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -144,12 +160,6 @@ const JobCard: React.FC<JobCardProps> = ({ job, onViewJobDetails, onViewCompanyP
             title="Share job"
           >
             <ShareIcon className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => onViewJobDetails(job)}
-            className="px-4 py-2 text-sm bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark hover:shadow-lg transform hover:scale-105 transition-all duration-200"
-          >
-            View Details
           </button>
         </div>
       </div>

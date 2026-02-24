@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from './stores/useAuthStore';
+import { useUserStore } from './src/stores/userStore';
 import { useSharedJobsStore } from './stores/useSharedJobsStore';
 import Header from './components/Header';
 import Hero from './components/Hero';
@@ -26,7 +27,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
 import LazySection from './src/components/LazySection';
 import MarketInsightsSection from './src/components/InsightsSection';
-import { debugTokens, clearAllTokens, isValidToken } from './src/utils/tokenDebug';
+import { debugTokens, clearAllTokens } from './src/utils/tokenDebug';
 import analytics from './src/utils/analytics';
 
 // Lazy load heavy components for better performance
@@ -69,7 +70,15 @@ const App: React.FC = () => {
   const [applications, setApplications] = useState<Application[]>([]);
   const [savedJobs, setSavedJobs] = useState<Job[]>([]);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>(INITIAL_SAVED_SEARCHES);
-  const [resumes, setResumes] = useState<Resume[]>(MOCK_RESUMES);
+  const { resumes: userResumes, setResumes: setUserResumes } = useUserStore();
+  const [resumes, setResumes] = useState<Resume[]>([]);
+  
+  // Initialize resumes from userStore on mount
+  useEffect(() => {
+    if (userResumes && userResumes.length > 0) {
+      setResumes(userResumes);
+    }
+  }, [userResumes]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [completedAssessments, setCompletedAssessments] = useState<CompletedAssessment[]>(MOCK_COMPLETED_ASSESSMENTS);
@@ -94,12 +103,16 @@ const App: React.FC = () => {
       'signup': '/signup',
       'email_verification': '/verify-email',
       'forgot_password': '/forgot-password',
+      'onboarding': '/onboarding',
       'job_search': '/job-search',
       'companies_directory': '/companies',
       'job_details': '/job-details',
       'company_profile': '/company-profile',
       'messaging': '/messaging',
       'universal_dashboard': '/dashboard',
+      'adaptive_dashboard': '/dashboard/adaptive',
+      'linkedin_dashboard': '/dashboard/linkedin',
+      'test_features': '/test-features',
       'job_seeker_dashboard': '/dashboard/job-seeker',
       'employer_dashboard': '/dashboard/employer',
       'admin_dashboard': '/dashboard/admin',
@@ -140,12 +153,17 @@ const App: React.FC = () => {
         const refreshToken = localStorage.getItem('refreshToken');
         const accessToken = localStorage.getItem('accessToken');
         
+        // Helper to check token validity
+        const isValidTokenStr = (token: string | null): boolean => {
+          return token !== null && token !== 'undefined' && token !== 'null' && token.trim() !== '';
+        };
+        
         // Clear invalid tokens
-        if (!isValidToken(refreshToken)) {
+        if (!isValidTokenStr(refreshToken)) {
           console.warn('🧹 [App] Clearing invalid refresh token:', refreshToken);
           localStorage.removeItem('refreshToken');
         }
-        if (!isValidToken(accessToken)) {
+        if (!isValidTokenStr(accessToken)) {
           console.warn('🧹 [App] Clearing invalid access token:', accessToken);
           localStorage.removeItem('accessToken');
         }
@@ -268,7 +286,7 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     console.log('Login success callback triggered');
 
     // Get current user from store (should be set by login function)
@@ -290,7 +308,61 @@ const App: React.FC = () => {
         setShowOnboarding(true);
       } else if (currentUser.userType === 'job_seeker') {
         console.log('Navigating to job seeker dashboard');
-        setApplications(INITIAL_APPLICATIONS);
+        
+        // Fetch real applications from backend for this user
+        try {
+          const { getUserApplications } = await import('./src/api/applicationApi');
+          const response = await getUserApplications();
+          
+          console.log('🔍 [App] Backend response:', response);
+          console.log('🔍 [App] Response.applications:', response.applications);
+          console.log('🔍 [App] Response type:', typeof response);
+          console.log('🔍 [App] Response keys:', Object.keys(response));
+          
+          // Map backend applications to frontend format
+          const mappedApplications = response.applications.map(app => {
+            console.log('🔍 [App] Mapping application:', {
+              id: app.id,
+              jobId: app.jobId,
+              jobTitle: app.jobTitle,
+              status: app.status
+            });
+            
+            return {
+              jobId: app.jobId, // Store backend jobId for comparison
+              job: {
+                id: app.jobId,
+                title: app.jobTitle || 'Job Title',
+                company: app.companyName || 'Company',
+                companyId: '',
+                logo: 'https://via.placeholder.com/100',
+                location: 'Location',
+                type: 'Full-time' as const,
+                posted: 'Recently',
+                description: '',
+                skills: []
+              },
+              status: app.status === 'APPLIED' ? 'APPLIED' as const :
+                     app.status === 'RESUME_VIEWED' ? 'RESUME_VIEWED' as const :
+                     app.status === 'IN_REVIEW' ? 'IN_REVIEW' as const :
+                     app.status === 'SHORTLISTED' ? 'SHORTLISTED' as const :
+                     app.status === 'INTERVIEW' ? 'INTERVIEW' as const :
+                     app.status === 'OFFERED' ? 'OFFERED' as const :
+                     app.status === 'REJECTED' ? 'REJECTED' as const :
+                     app.status === 'WITHDRAWN' ? 'WITHDRAWN' as const :
+                     'APPLIED' as const,
+              appliedDate: app.appliedDate
+            };
+          });
+          
+          console.log('✅ Fetched user applications:', mappedApplications.length, 'applications');
+          console.log('📋 Application job IDs:', mappedApplications.map(a => a.jobId));
+          setApplications(mappedApplications);
+        } catch (error) {
+          console.error('❌ Failed to fetch applications, using empty array:', error);
+          setApplications([]); // Start fresh instead of mock data
+        }
+        
         setSavedJobs(INITIAL_SAVED_JOBS);
         setNotifications(MOCK_NOTIFICATIONS);
         setConversations(MOCK_CONVERSATIONS);
@@ -343,7 +415,7 @@ const App: React.FC = () => {
     navigate('landing');
   };
 
-  const handleOnboardingComplete = (selectedUserType: 'job_seeker' | 'employer') => {
+  const handleOnboardingComplete = async (selectedUserType: 'job_seeker' | 'employer') => {
     // Update user type in store
     const currentUser = useAuthStore.getState().user;
     if (currentUser) {
@@ -360,7 +432,44 @@ const App: React.FC = () => {
 
     setShowOnboarding(false);
     if (selectedUserType === 'job_seeker') {
-      setApplications(INITIAL_APPLICATIONS);
+      // Fetch real applications from backend
+      try {
+        const { getUserApplications } = await import('./src/api/applicationApi');
+        const response = await getUserApplications();
+        
+        const mappedApplications = response.applications.map(app => ({
+          jobId: app.jobId, // Store backend jobId for comparison
+          job: {
+            id: app.jobId,
+            title: app.jobTitle || 'Job Title',
+            company: app.companyName || 'Company',
+            companyId: '',
+            logo: 'https://via.placeholder.com/100',
+            location: 'Location',
+            type: 'Full-time' as const,
+            posted: 'Recently',
+            description: '',
+            skills: []
+          },
+          status: app.status === 'APPLIED' ? 'APPLIED' as const :
+                 app.status === 'RESUME_VIEWED' ? 'RESUME_VIEWED' as const :
+                 app.status === 'IN_REVIEW' ? 'IN_REVIEW' as const :
+                 app.status === 'SHORTLISTED' ? 'SHORTLISTED' as const :
+                 app.status === 'INTERVIEW' ? 'INTERVIEW' as const :
+                 app.status === 'OFFERED' ? 'OFFERED' as const :
+                 app.status === 'REJECTED' ? 'REJECTED' as const :
+                 app.status === 'WITHDRAWN' ? 'WITHDRAWN' as const :
+                 'APPLIED' as const,
+          appliedDate: app.appliedDate
+        }));
+        
+        console.log('✅ Fetched user applications:', mappedApplications.length, 'applications');
+        setApplications(mappedApplications);
+      } catch (error) {
+        console.error('❌ Failed to fetch applications:', error);
+        setApplications([]); // Start with empty for new users
+      }
+      
       setSavedJobs(INITIAL_SAVED_JOBS);
       setNotifications(MOCK_NOTIFICATIONS);
       setConversations(MOCK_CONVERSATIONS);
@@ -386,47 +495,109 @@ const App: React.FC = () => {
     navigate('company_profile');
   };
   
+  // REMOVED: localStorage loading for applications (backend is source of truth)
+  // Load notifications from localStorage on mount
+  useEffect(() => {
+    const savedNotifications = localStorage.getItem('jobhub_notifications');
+    if (savedNotifications) {
+      try {
+        const parsed = JSON.parse(savedNotifications);
+        setNotifications(parsed);
+        console.log('📂 Loaded notifications from localStorage:', parsed.length);
+      } catch (e) {
+        console.error('Failed to parse notifications from localStorage:', e);
+      }
+    }
+  }, []);
+
+  // REMOVED: Save applications to localStorage (backend is source of truth)
+  
+  // Save notifications to localStorage whenever they change
+  useEffect(() => {
+    if (notifications.length > 0) {
+      localStorage.setItem('jobhub_notifications', JSON.stringify(notifications));
+    }
+  }, [notifications]);
+
   const handleApplyJob = async (job: Job, applicationData?: any) => {
-    if (applications.some(app => app.job.id === job.id)) return;
+    // Check if already applied using jobId (more reliable than job.id)
+    const jobIdToCheck = typeof job.id === 'number' ? job.id : parseInt(String(job.id), 10);
+    if (applications.some(app => app.jobId === jobIdToCheck || app.job.id === job.id)) {
+      alert('⚠️ You have already applied to this job!');
+      return;
+    }
     
     try {
       const { submitApplication } = await import('./src/api/applicationApi');
       
-      // Convert jobId to number (backend expects Long, not String)
-      const jobIdNumber = typeof job.id === 'string' ? parseInt(job.id.replace(/\D/g, ''), 10) || 1 : job.id;
+      // Convert jobId to number (backend expects Long)
+      const jobIdNumber = job.id;
+      
+      // Get user info from auth store
+      const currentUser = useAuthStore.getState().user;
       
       const result = await submitApplication({
         jobId: jobIdNumber,
-        resumeId: applicationData?.resumeId || resumes.find(r => r.isPrimary)?.id
+        resumeId: applicationData?.resumeId || resumes.find(r => r.isPrimary)?.id,
+        resumeFile: applicationData?.resumeFile, // Pass the actual resume file
+        resumeFileName: applicationData?.resumeFile?.name || resumes.find(r => r.id === (applicationData?.resumeId || resumes.find(r => r.isPrimary)?.id))?.fileName,
+        coverLetter: applicationData?.coverLetter,
+        applicantName: currentUser?.name || currentUser?.email?.split('@')[0] || 'Unknown User',
+        applicantEmail: currentUser?.email || ''
       });
       
       const newApplication: Application = {
+        jobId: jobIdNumber, // Store backend jobId
         job,
-        status: 'Applied',
+        status: 'APPLIED',
         appliedDate: result.appliedDate,
       };
       setApplications(prev => [newApplication, ...prev]);
       console.log('✅ Application submitted:', result);
+      console.log('📋 Updated applications, now have:', applications.length + 1, 'applications');
       
-      // Show success notification
+      // Show personalized congratulation notification with JobHub branding
       setNotifications(prev => [{
         id: `notif-${Date.now()}`,
-        type: 'success',
-        title: 'Application Submitted!',
-        message: `Your application for ${job.title} at ${job.company} has been submitted successfully.`,
+        type: 'application',
+        text: `Congratulations! 🎉 Your application for ${job.title} at ${job.company} has been submitted successfully. The company will review it and get back to you soon. Good luck! 🍀`,
         timestamp: 'Just now',
         isRead: false
       }, ...prev]);
       
-    } catch (error) {
+      // Show a toast notification instead of alert
+      console.log('✅ Application submitted successfully!');
+      
+    } catch (error: any) {
       console.error('❌ Failed to apply:', error);
-      // Still add to local state as fallback
-      const newApplication: Application = {
-        job,
-        status: 'Applied',
-        appliedDate: new Date().toISOString().split('T')[0],
-      };
-      setApplications(prev => [newApplication, ...prev]);
+      
+      // Handle specific error cases
+      const errorMessage = error.message || 'Failed to submit application';
+      
+      if (errorMessage.includes('already applied')) {
+        // User already applied (409 Conflict)
+        alert('⚠️ Already Applied\n\nYou have already submitted an application for this job.\n\nCheck your "My Applications" tab to track its status.');
+        
+        // Add to local state if not already there
+        if (!applications.some(app => app.job.id === job.id)) {
+          const existingApplication: Application = {
+            job,
+            status: 'APPLIED',
+            appliedDate: new Date().toISOString().split('T')[0],
+          };
+          setApplications(prev => [existingApplication, ...prev]);
+        }
+      } else if (errorMessage.includes('not found')) {
+        // Job not found (404)
+        alert('❌ Job Not Found\n\nThis job posting is no longer available.\n\nIt may have been removed or filled by the employer.');
+      } else if (errorMessage.includes('unauthorized') || errorMessage.includes('login')) {
+        // Not authenticated (401)
+        alert('🔐 Login Required\n\nPlease log in to apply for jobs.');
+        navigate('login');
+      } else {
+        // Generic error
+        alert(`❌ Application Failed\n\n${errorMessage}\n\nPlease try again or contact support if the problem persists.`);
+      }
     }
   };
   
@@ -437,9 +608,7 @@ const App: React.FC = () => {
       const { saveJob, unsaveJob } = await import('./src/api/jobApi');
       
       // Convert jobId to number (backend expects Long)
-      const jobIdNumber = typeof job.id === 'string' 
-        ? parseInt(job.id.replace(/\D/g, ''), 10) || 1 
-        : job.id;
+      const jobIdNumber = job.id;
       
       if (isSaved) {
         await unsaveJob(jobIdNumber.toString());
@@ -499,22 +668,25 @@ const App: React.FC = () => {
         isPrimary: resumes.length === 0,
         textContent: fileContent,
     };
-    setResumes(prev => [newResume, ...prev]);
+    const updatedResumes = [newResume, ...resumes];
+    setResumes(updatedResumes);
+    setUserResumes(updatedResumes); // Sync with userStore
   };
   
   const handleDeleteResume = (resumeId: string) => {
-    setResumes(prev => {
-        const newResumes = prev.filter(r => r.id !== resumeId);
-        // If the deleted resume was primary, make the first one primary
-        if (newResumes.length > 0 && !newResumes.some(r => r.isPrimary)) {
-            newResumes[0].isPrimary = true;
-        }
-        return newResumes;
-    });
+    const newResumes = resumes.filter(r => r.id !== resumeId);
+    // If the deleted resume was primary, make the first one primary
+    if (newResumes.length > 0 && !newResumes.some(r => r.isPrimary)) {
+        newResumes[0].isPrimary = true;
+    }
+    setResumes(newResumes);
+    setUserResumes(newResumes); // Sync with userStore
   };
 
   const handleSetPrimaryResume = (resumeId: string) => {
-    setResumes(prev => prev.map(r => ({ ...r, isPrimary: r.id === resumeId })));
+    const updatedResumes = resumes.map(r => ({ ...r, isPrimary: r.id === resumeId }));
+    setResumes(updatedResumes);
+    setUserResumes(updatedResumes); // Sync with userStore
   };
 
   const handleMarkAllNotificationsRead = () => {
@@ -563,15 +735,15 @@ const App: React.FC = () => {
 
       // Post job to backend API using httpClient for consistency
       const { httpPost } = await import('./src/api/httpClient');
-      const newJob = await httpPost('/jobs', jobPayload);
-      console.log('✅ [App] Job posted successfully:', newJob.id);
+      const newJobResult = await httpPost('/jobs', jobPayload) as Job;
+      console.log('✅ [App] Job posted successfully:', newJobResult.id);
 
       // Add to shared store (makes it available to job seekers immediately!)
       const { addJob } = useSharedJobsStore.getState();
-      addJob(newJob);
+      addJob(newJobResult);
 
       // Also add to employer's local list
-      setEmployerJobs(prev => [newJob, ...prev]);
+      setEmployerJobs(prev => [newJobResult, ...prev]);
 
       // Show success message
       alert('✅ Job posted successfully! Job seekers can now see it.');
@@ -651,12 +823,15 @@ const App: React.FC = () => {
             navigate('job_search');
             return null;
         }
+        const hasApplied = applications.some(app => app.job.id === selectedJob.id);
+        
         return <JobDetailsPage
                     job={selectedJob}
                     onBack={() => navigate(userType === 'employer' ? 'employer_dashboard' : 'job_search')}
                     onApply={isAuthenticated ? handleApplyJob : () => navigate('login')}
                     onToggleSave={isAuthenticated ? handleToggleSaveJob : () => navigate('login')}
                     isSaved={savedJobs.some(j => j.id === selectedJob.id)}
+                    isApplied={hasApplied}
                     isAuthenticated={isAuthenticated}
                     onLoginRedirect={() => navigate('login')}
                     onViewCompanyProfile={handleViewCompanyProfile}

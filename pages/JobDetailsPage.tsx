@@ -16,6 +16,7 @@ interface JobDetailsPageProps {
   onApply: (job: Job, applicationData?: any) => void;
   onToggleSave: (job: Job) => void;
   isSaved: boolean;
+  isApplied: boolean;
   isAuthenticated: boolean;
   onLoginRedirect: () => void;
   onViewCompanyProfile: (companyId: string) => void;
@@ -31,6 +32,7 @@ const JobDetailsPage: React.FC<JobDetailsPageProps> = ({
   onApply, 
   onToggleSave, 
   isSaved, 
+  isApplied,
   isAuthenticated, 
   onLoginRedirect, 
   onViewCompanyProfile, 
@@ -43,14 +45,21 @@ const JobDetailsPage: React.FC<JobDetailsPageProps> = ({
 
     // Track job view when component mounts
     useEffect(() => {
-        BehaviorTracker.trackJobView(job.id);
+        BehaviorTracker.trackJobView(job.id.toString());
     }, [job.id]);
 
     const handleApplyClick = () => {
-        if (isAuthenticated) {
-            BehaviorTracker.trackJobApply(job.id);
+        console.log('🔵 [JobDetailsPage] Apply button clicked');
+        console.log('🔵 [JobDetailsPage] isAuthenticated:', isAuthenticated);
+        if (isAuthenticated && !isApplied) {
+            BehaviorTracker.trackJobApply(job.id.toString());
+            console.log('🔵 [JobDetailsPage] Opening apply modal...');
             setIsApplyModalOpen(true);
+        } else if (isApplied) {
+            console.log('🔵 [JobDetailsPage] Already applied, showing message...');
+            alert('⚠️ You have already applied to this job!');
         } else {
+            console.log('🔵 [JobDetailsPage] Not authenticated, redirecting to login');
             onLoginRedirect();
         }
     };
@@ -58,7 +67,7 @@ const JobDetailsPage: React.FC<JobDetailsPageProps> = ({
     const handleSaveClick = () => {
         if (isAuthenticated) {
             if (!isSaved) {
-                BehaviorTracker.trackJobSave(job.id);
+                BehaviorTracker.trackJobSave(job.id.toString());
             }
             onToggleSave(job);
         } else {
@@ -99,8 +108,16 @@ const JobDetailsPage: React.FC<JobDetailsPageProps> = ({
                             <button className="p-3 bg-gray-100 text-gray-500 rounded-full hover:bg-gray-200">
                                 <ShareIcon className="w-6 h-6"/>
                             </button>
-                            <button onClick={handleApplyClick} className="px-6 py-3 bg-primary text-white font-semibold rounded-md shadow-md hover:bg-blue-700 transition-all duration-200 ml-2">
-                                Apply Now
+                            <button 
+                                onClick={handleApplyClick} 
+                                disabled={isApplied}
+                                className={`px-6 py-3 font-semibold rounded-md shadow-md transition-all duration-200 ml-2 ${
+                                    isApplied 
+                                        ? 'bg-green-600 text-white cursor-not-allowed'
+                                        : 'bg-primary text-white hover:bg-blue-700'
+                                }`}
+                            >
+                                {isApplied ? '✓ Applied' : 'Apply Now'}
                             </button>
                         </div>
                     </div>
@@ -114,7 +131,13 @@ const JobDetailsPage: React.FC<JobDetailsPageProps> = ({
                                
                                <h2 className="font-bold text-xl text-neutral-dark mt-6">Responsibilities</h2>
                                <ul className="list-disc pl-5 space-y-1">
-                                    {job.responsibilities?.map((resp, index) => <li key={index}>{resp}</li>)}
+                                    {Array.isArray(job.responsibilities) && job.responsibilities.map((resp, index) => <li key={index}>{resp}</li>)}
+                                    {typeof job.responsibilities === 'string' && (
+                                        <li>{job.responsibilities}</li>
+                                    )}
+                                    {!job.responsibilities && (
+                                        <li className="text-gray-500 italic">No responsibilities listed</li>
+                                    )}
                                </ul>
                             </div>
                         </div>
@@ -156,18 +179,30 @@ const JobDetailsPage: React.FC<JobDetailsPageProps> = ({
             </div>
         </div>
         {isApplyModalOpen && (
-            <ApplyJobModal 
-                job={job}
-                onClose={() => setIsApplyModalOpen(false)}
-                onSubmit={(applicationData) => {
-                    onApply(job, applicationData);
-                    setIsApplyModalOpen(false);
-                }}
-                onPractice={onStartPracticeInterview}
-                userResumes={userResumes}
-                userEmail={userEmail}
-                userPhone={userPhone}
-            />
+            <>
+                {console.log('🟢 [JobDetailsPage] Rendering ApplyJobModal', { 
+                    isOpen: isApplyModalOpen,
+                    hasResumes: userResumes.length,
+                    email: userEmail,
+                    phone: userPhone
+                })}
+                <ApplyJobModal 
+                    job={job}
+                    onClose={() => {
+                        console.log('🔴 [JobDetailsPage] Closing modal');
+                        setIsApplyModalOpen(false);
+                    }}
+                    onSubmit={(applicationData) => {
+                        console.log('🟢 [JobDetailsPage] Application submitted from modal', applicationData);
+                        onApply(job, applicationData);
+                        setIsApplyModalOpen(false);
+                    }}
+                    onPractice={onStartPracticeInterview}
+                    userResumes={userResumes}
+                    userEmail={userEmail}
+                    userPhone={userPhone}
+                />
+            </>
         )}
     </>
     );

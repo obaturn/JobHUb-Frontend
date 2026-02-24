@@ -10,6 +10,7 @@ import UnifiedSocialFeed from '../feed/UnifiedSocialFeed';
 import CompanyEngagementFlow from '../workflow/CompanyEngagementFlow';
 import { useBehaviorTracking } from '../../src/hooks/useBehaviorTracking';
 import { useSharedJobsStore } from '../../stores/useSharedJobsStore';
+import { useSavedJobsStore } from '../../stores/useSavedJobsStore';
 import { motion } from 'framer-motion';
 
 interface DashboardOverviewProps {
@@ -44,6 +45,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     onFollowCompany
 }) => {
     const { allJobs, fetchAllJobs } = useSharedJobsStore();
+    const { savedJobs: localSavedJobs, saveJob, unsaveJob, isJobSaved } = useSavedJobsStore();
     const [recommendedJobs, setRecommendedJobs] = useState<Job[]>([]);
     const [recentActivity, setRecentActivity] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -61,10 +63,17 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         fetchAllJobs();
     }, [user.id, fetchAllJobs]);
 
-    // Get latest 5 jobs from shared store
+    // Get latest 5 jobs from shared store, excluding saved jobs
     const latestJobs = allJobs
+        .filter(job => !localSavedJobs.some(saved => saved.id === job.id)) // Filter out saved jobs
         .sort((a, b) => b.id - a.id)  // Sort by ID (most recent first)
         .slice(0, 5);
+    
+    console.log('📊 [DashboardOverview] Latest jobs:', {
+        totalJobs: allJobs.length,
+        latestJobsCount: latestJobs.length,
+        jobTitles: latestJobs.map(j => j.title)
+    });
 
     const loadPersonalizedContent = async () => {
         setLoading(true);
@@ -75,33 +84,33 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             // Mock recommended jobs based on user profile
             const mockRecommendedJobs: Job[] = [
                 {
-                    id: 'rec-1',
+                    id: 90001,
                     title: 'Senior Frontend Developer',
                     company: 'TechCorp Inc.',
                     location: 'San Francisco, CA',
                     type: 'Full-time',
                     salary: '$120,000 - $150,000',
                     description: 'Join our team building next-generation web applications...',
-                    requirements: ['React', 'TypeScript', '5+ years experience'],
-                    postedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-                    companyLogo: 'https://picsum.photos/seed/techcorp/100/100',
+                    skills: ['React', 'TypeScript', '5+ years experience'],
+                    posted: '2 days ago',
+                    logo: 'https://picsum.photos/seed/techcorp/100/100',
                     isRemote: false,
-                    experienceLevel: 'Senior',
+                    seniority: 'Senior',
                     companyId: 'techcorp'
                 },
                 {
-                    id: 'rec-2',
+                    id: 90002,
                     title: 'React Developer',
                     company: 'StartupXYZ',
                     location: 'Remote',
                     type: 'Full-time',
                     salary: '$90,000 - $120,000',
                     description: 'Build innovative products with cutting-edge technology...',
-                    requirements: ['React', 'Node.js', '3+ years experience'],
-                    postedDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-                    companyLogo: 'https://picsum.photos/seed/startupxyz/100/100',
+                    skills: ['React', 'Node.js', '3+ years experience'],
+                    posted: '1 day ago',
+                    logo: 'https://picsum.photos/seed/startupxyz/100/100',
                     isRemote: true,
-                    experienceLevel: 'Mid-level',
+                    seniority: 'Mid',
                     companyId: 'startupxyz'
                 }
             ];
@@ -285,17 +294,50 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                                         </div>
                                     </div>
                                     <div className="flex flex-col gap-2 ml-4">
+                                        {(() => {
+                                            const hasApplied = applications.some(app => app.jobId === job.id || app.job.id === job.id);
+                                            console.log('🔍 [DashboardOverview] Checking job:', {
+                                                jobId: job.id,
+                                                jobTitle: job.title,
+                                                hasApplied,
+                                                applicationJobIds: applications.map(a => a.jobId),
+                                                applicationsCount: applications.length
+                                            });
+                                            return hasApplied;
+                                        })() ? (
+                                            <button
+                                                disabled
+                                                className="px-4 py-2 bg-gray-300 text-gray-600 rounded-lg text-sm font-medium cursor-not-allowed whitespace-nowrap flex items-center justify-center gap-2"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                Already Applied
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => onViewJobDetails(job)}
+                                                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors whitespace-nowrap"
+                                            >
+                                                Apply Now
+                                            </button>
+                                        )}
                                         <button
-                                            onClick={() => onApplyJob?.(job)}
-                                            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors whitespace-nowrap"
+                                            onClick={() => {
+                                                if (isJobSaved(job.id)) {
+                                                    unsaveJob(job);
+                                                } else {
+                                                    saveJob(job);
+                                                    setActiveTab('saved_jobs');
+                                                }
+                                            }}
+                                            className={`px-4 py-2 border rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                                                isJobSaved(job.id)
+                                                    ? 'bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100'
+                                                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                                            }`}
                                         >
-                                            Apply Now
-                                        </button>
-                                        <button
-                                            onClick={() => onSaveJob?.(job)}
-                                            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors whitespace-nowrap"
-                                        >
-                                            Save
+                                            {isJobSaved(job.id) ? 'Saved' : 'Save'}
                                         </button>
                                     </div>
                                 </div>
@@ -360,12 +402,24 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                                         </div>
                                     </div>
                                     <div className="flex flex-col gap-2 ml-4">
-                                        <button
-                                            onClick={() => onApplyJob?.(job)}
-                                            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-                                        >
-                                            Apply
-                                        </button>
+                                        {applications.some(app => app.jobId === job.id || app.job.id === job.id) ? (
+                                            <button
+                                                disabled
+                                                className="px-4 py-2 bg-gray-300 text-gray-600 rounded-lg text-sm font-medium cursor-not-allowed flex items-center justify-center gap-2"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                Already Applied
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => onViewJobDetails(job)}
+                                                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                                            >
+                                                Apply
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() => onSaveJob?.(job)}
                                             className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
